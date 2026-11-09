@@ -1,0 +1,209 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "EMedic AI Actions API",
+    "version": "1.0.0",
+    "description": "Real actions the EMedic AI agent can take for a patient: book, look up, cancel and reschedule appointments; request and track prescription refills; request a nurse callback; and get a care-level recommendation. Every response includes a patient-friendly `message` field that can be shown to the patient as-is. Errors return { error, message } with a friendly message. Demo system: all data is fictional."
+  },
+  "servers": [{ "url": "https://YOUR-APP.onrender.com", "description": "Replace with your deployed URL" }],
+  "security": [{ "ApiKey": [] }],
+  "components": {
+    "securitySchemes": {
+      "ApiKey": { "type": "apiKey", "in": "header", "name": "X-API-Key" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" }, "message": { "type": "string", "description": "Show this to the patient." } }
+      },
+      "Appointment": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string", "example": "APT-482913" },
+          "visitType": { "type": "string" },
+          "format": { "type": "string" },
+          "time": { "type": "string", "example": "Tue, Nov 10, 10:15 AM" },
+          "reason": { "type": "string" },
+          "status": { "type": "string", "enum": ["Booked", "Cancelled"] },
+          "message": { "type": "string" }
+        }
+      },
+      "Refill": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string", "example": "RX-205117" },
+          "medication": { "type": "string" },
+          "pharmacy": { "type": "string" },
+          "status": { "type": "string", "enum": ["Sent to pharmacy", "Waiting for provider approval", "Approved, sent to pharmacy", "Not approved"] },
+          "message": { "type": "string" }
+        }
+      },
+      "Callback": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string", "example": "CB-771204" },
+          "phone": { "type": "string" },
+          "bestTime": { "type": "string" },
+          "status": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "Err": { "description": "Friendly error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    }
+  },
+  "paths": {
+    "/api/actions/slots": {
+      "get": {
+        "operationId": "listSlots",
+        "summary": "List the next available appointment times",
+        "responses": {
+          "200": { "description": "Open slots", "content": { "application/json": { "schema": { "type": "object", "properties": { "slots": { "type": "array", "items": { "type": "string" } }, "message": { "type": "string" } } } } } },
+          "401": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/appointments": {
+      "post": {
+        "operationId": "bookAppointment",
+        "summary": "Book an appointment in one of the open slots",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object",
+            "required": ["visitType", "format", "time"],
+            "properties": {
+              "visitType": { "type": "string", "enum": ["Sick visit", "Annual physical / checkup", "Follow-up visit", "Mental health", "Vaccine only"] },
+              "format": { "type": "string", "enum": ["In person", "Video visit"] },
+              "time": { "type": "string", "description": "Exactly one of the strings returned by listSlots" },
+              "reason": { "type": "string" }
+            }
+          } } }
+        },
+        "responses": {
+          "200": { "description": "Booked", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Appointment" } } } },
+          "400": { "$ref": "#/components/responses/Err" },
+          "409": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/appointments/{ref}": {
+      "get": {
+        "operationId": "getAppointment",
+        "summary": "Look up an appointment by confirmation number",
+        "parameters": [{ "name": "ref", "in": "path", "required": true, "schema": { "type": "string", "example": "APT-482913" } }],
+        "responses": {
+          "200": { "description": "Found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Appointment" } } } },
+          "404": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/appointments/{ref}/cancel": {
+      "post": {
+        "operationId": "cancelAppointment",
+        "summary": "Cancel an appointment",
+        "parameters": [{ "name": "ref", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Cancelled", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Appointment" } } } },
+          "404": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/appointments/{ref}/reschedule": {
+      "post": {
+        "operationId": "rescheduleAppointment",
+        "summary": "Move an appointment to another open slot",
+        "parameters": [{ "name": "ref", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["time"], "properties": { "time": { "type": "string" } } } } } },
+        "responses": {
+          "200": { "description": "Rescheduled", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Appointment" } } } },
+          "404": { "$ref": "#/components/responses/Err" },
+          "409": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/refills": {
+      "post": {
+        "operationId": "requestRefill",
+        "summary": "Request a prescription refill (refuses controlled medications)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object",
+            "required": ["medication", "dateOfBirth", "pharmacy"],
+            "properties": {
+              "medication": { "type": "string", "example": "lisinopril 10 mg" },
+              "dateOfBirth": { "type": "string", "example": "04/17/1985", "description": "MM/DD/YYYY" },
+              "refillsRemaining": { "type": "string", "enum": ["Yes", "No", "Not sure"] },
+              "pharmacy": { "type": "string", "example": "EMedic Pharmacy (pick up)" },
+              "controlled": { "type": "string", "enum": ["Yes", "No", "Not sure"], "description": "If Yes, the request is refused with a 422 and a safe message." }
+            }
+          } } }
+        },
+        "responses": {
+          "200": { "description": "Requested", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Refill" } } } },
+          "400": { "$ref": "#/components/responses/Err" },
+          "422": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/refills/{ref}": {
+      "get": {
+        "operationId": "getRefillStatus",
+        "summary": "Check the status of a refill request",
+        "parameters": [{ "name": "ref", "in": "path", "required": true, "schema": { "type": "string", "example": "RX-205117" } }],
+        "responses": {
+          "200": { "description": "Found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Refill" } } } },
+          "404": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/callbacks": {
+      "post": {
+        "operationId": "requestCallback",
+        "summary": "Ask a nurse to call the patient back",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object",
+            "required": ["phone"],
+            "properties": {
+              "phone": { "type": "string", "example": "(555) 123-4567" },
+              "bestTime": { "type": "string", "enum": ["As soon as possible", "Morning (8 AM–12 PM)", "Afternoon (12–5 PM)", "Evening (5–9 PM)"] },
+              "reason": { "type": "string" }
+            }
+          } } }
+        },
+        "responses": {
+          "200": { "description": "Queued", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Callback" } } } },
+          "400": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    },
+    "/api/actions/triage": {
+      "post": {
+        "operationId": "triage",
+        "summary": "Recommend the right level of care from symptom-check answers",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object",
+            "required": ["emergencySigns", "symptom", "ageGroup", "severity", "duration"],
+            "properties": {
+              "emergencySigns": { "type": "string", "enum": ["Yes", "No"] },
+              "symptom": { "type": "string", "enum": ["Fever", "Cough, cold or sore throat", "Stomach (vomiting, diarrhea, pain)", "Pain or injury", "Rash or skin", "Urinary symptoms", "Something else"] },
+              "ageGroup": { "type": "string", "enum": ["Under 3 months", "3 months to 17 years", "18 to 64", "65 or older"] },
+              "severity": { "type": "string", "enum": ["Mild", "Moderate", "Severe"] },
+              "duration": { "type": "string", "enum": ["Less than 2 days", "2 to 7 days", "More than a week"] }
+            }
+          } } }
+        },
+        "responses": {
+          "200": { "description": "Recommendation", "content": { "application/json": { "schema": { "type": "object", "properties": { "level": { "type": "string", "enum": ["emergency", "urgent_care_today", "same_day_visit", "visit_1_2_days", "self_care"] }, "recommendation": { "type": "string" }, "message": { "type": "string" } } } } } },
+          "400": { "$ref": "#/components/responses/Err" }
+        }
+      }
+    }
+  }
+}
