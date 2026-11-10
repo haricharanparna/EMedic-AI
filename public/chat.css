@@ -248,7 +248,8 @@ body.ready .main { transition-delay: 0.1s; }
 @keyframes tileIn { from { transform: scale(0.4) rotate(-20deg); opacity: 0; } }
 .logo-big svg { width: 58px; height: 58px; overflow: visible; }
 .logo-big .bubble { stroke-dasharray: 80; stroke-dashoffset: 80; animation: draw 1.1s 0.35s var(--ease) forwards; }
-.logo-big .spark { transform-origin: 12px 12px; transform: scale(0); animation: sparkIn 0.6s 1.1s var(--ease) forwards, beat 2.4s 1.7s ease-in-out infinite; }
+.logo-big .spark { stroke-dasharray: 24; stroke-dashoffset: 24; animation: draw 0.8s 1.1s ease-out forwards, trace 2.4s 2.2s ease-in-out infinite; }
+@keyframes trace { 0%, 70% { stroke-dashoffset: 0; } 85% { stroke-dashoffset: -24; } 85.01% { stroke-dashoffset: 24; } 100% { stroke-dashoffset: 0; } }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes sparkIn { to { transform: scale(1); } }
 @keyframes beat { 15% { transform: scale(1.18); } 30% { transform: scale(1); } }
