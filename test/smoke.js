@@ -175,6 +175,44 @@ server.listen(0, async () => {
     assert.equal(s.summary.patientName, 'Maria Lopez');
   });
 
+  await check('nurses manage the open appointment times', async () => {
+    const staff = (method, url, body) => fetch(base + url, { method, headers, body: body && JSON.stringify(body) });
+    assert.equal((await fetch(`${base}/api/agent/slots`)).status, 401, 'staff only');
+    const before = await (await staff('GET', '/api/agent/slots')).json();
+    assert.ok(before.slots.length > 0, 'a new schedule starts with default times');
+    assert.deepEqual(before.standardTimes, ['09:00', '10:15', '13:00', '15:30']);
+    // Add a time; it shows up for patients once it's among the soonest.
+    const added = await (await staff('POST', '/api/agent/slots', { start: '2031-03-04T08:30', name: 'Nurse Jordan' })).json();
+    assert.deepEqual(added.added, ['Tue, Mar 4, 8:30 AM']);
+    assert.equal((await staff('POST', '/api/agent/slots', { start: '2031-03-04T08:30' })).status, 409, 'no duplicates');
+    assert.equal((await staff('POST', '/api/agent/slots', { start: '2020-01-01T09:00' })).status, 400, 'no past times');
+    assert.equal((await staff('POST', '/api/agent/slots', { start: 'tomorrow' })).status, 400);
+    // A standard day opens four times at once and skips ones already open.
+    const day = await (await staff('POST', '/api/agent/slots', { starts: ['09:00', '10:15', '13:00', '15:30', '08:30'].map((t) => `2031-03-04T${t}`) })).json();
+    assert.equal(day.added.length, 4);
+    assert.equal(day.skipped.length, 1);
+    // Booked times can't be removed; open ones can.
+    const apiKey = { 'Content-Type': 'application/json', 'X-API-Key': 'test-actions-key' };
+    const booked = await (await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' }) })).json();
+    const list = (await (await staff('GET', '/api/agent/slots')).json()).slots;
+    const mine = list.find((s) => s.label === booked.time);
+    assert.equal(mine.booking.ref, booked.ref);
+    assert.equal((await staff('DELETE', `/api/agent/slots/${encodeURIComponent(mine.start)}`)).status, 409);
+    const rm = await (await staff('DELETE', `/api/agent/slots/${encodeURIComponent('2031-03-04T08:30')}`)).json();
+    assert.equal(rm.removed, 'Tue, Mar 4, 8:30 AM');
+    // With nothing open, the bot says so instead of showing an empty list.
+    const open = (await (await staff('GET', '/api/agent/slots')).json()).slots.filter((s) => !s.booking);
+    for (const s of open) await staff('DELETE', `/api/agent/slots/${encodeURIComponent(s.start)}`);
+    await fresh('test-no-slots');
+    await chat('test-no-slots', 'Book an appointment');
+    await chat('test-no-slots', 'Sick visit');
+    assert.match((await chat('test-no-slots', 'In person'))[0].text, /aren't any open appointment times/);
+    const none = await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' }) });
+    assert.equal(none.status, 409);
+    // Put a normal week back for the tests that follow.
+    for (const d of ['2031-03-05', '2031-03-06', '2031-03-07']) await staff('POST', '/api/agent/slots', { starts: ['09:00', '10:15', '13:00', '15:30'].map((t) => `${d}T${t}`) });
+  });
+
   await check('nurse console requires the passcode', async () => {
     assert.equal((await fetch(`${base}/api/agent/sessions`)).status, 401);
     const wrong = await fetch(`${base}/api/agent/sessions`, { headers: { 'X-Staff-Passcode': 'guess' } });

@@ -21,9 +21,9 @@ const session = {
 let passcode = session.get();
 let pollTimer = null;
 
-async function staffApi(url, body) {
+async function staffApi(url, body, method) {
   const res = await fetch(url, {
-    method: body === undefined ? 'GET' : 'POST',
+    method: method || (body === undefined ? 'GET' : 'POST'),
     headers: { 'Content-Type': 'application/json', 'X-Staff-Passcode': passcode },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -92,6 +92,7 @@ async function loadQueue() {
   document.title = waiting.size ? `(${waiting.size}) EMedic AI Nurse Console` : 'EMedic AI Nurse Console';
   setCount('chatCount', waiting.size);
   loadRequests();
+  if (!scheduleEl.hidden) loadSchedule(); // bookings come in while the tab is open
 
   if (!list.length) {
     queueEl.innerHTML = '<div class="empty">No conversations yet. Open the <a href="/" target="_blank">patient chat</a> and say hi.</div>';
@@ -121,14 +122,107 @@ function setCount(id, n) {
   el.textContent = n;
 }
 
+const scheduleEl = document.getElementById('schedule');
+const tabSchedule = document.getElementById('tabSchedule');
+
 function showTab(which) {
   tabChats.classList.toggle('on', which === 'chats');
   tabRequests.classList.toggle('on', which === 'requests');
+  tabSchedule.classList.toggle('on', which === 'schedule');
   queueEl.hidden = which !== 'chats';
   requestsEl.hidden = which !== 'requests';
+  scheduleEl.hidden = which !== 'schedule';
+  if (which === 'schedule') loadSchedule();
 }
 tabChats.onclick = () => showTab('chats');
 tabRequests.onclick = () => showTab('requests');
+tabSchedule.onclick = () => showTab('schedule');
+
+// ---- Schedule tab: the appointment times patients can book ----
+const slotListEl = document.getElementById('slotList');
+const slotDate = document.getElementById('slotDate');
+const slotTime = document.getElementById('slotTime');
+const slotMsg = document.getElementById('slotMsg');
+let standardTimes = [];
+
+const dayLabel = (date) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const timeLabel = (label) => label.split(', ').pop();
+const hm = (t) => { const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+
+function flash(text, isError) {
+  slotMsg.hidden = false;
+  slotMsg.textContent = text;
+  slotMsg.classList.toggle('err', Boolean(isError));
+  clearTimeout(flash.timer);
+  flash.timer = setTimeout(() => { slotMsg.hidden = true; }, 4000);
+}
+
+async function loadSchedule() {
+  let data;
+  try { data = await staffApi('/api/agent/slots'); } catch { return; }
+  standardTimes = data.standardTimes || [];
+  document.getElementById('tzNote').textContent = `Times are ${data.timezone.replace(/_/g, ' ')} time.`;
+  document.getElementById('addDay').title = `Opens ${standardTimes.map(hm).join(', ')} on the chosen date`;
+  if (!slotDate.value) {
+    // Default to tomorrow, using local dates (toISOString would be UTC and can skip a day in the evening).
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const d = new Date();
+    slotDate.min = ymd(d);
+    d.setDate(d.getDate() + 1);
+    slotDate.value = ymd(d);
+  }
+  if (!data.slots.length) {
+    slotListEl.innerHTML = '<div class="empty">No upcoming times. Patients can\'t book until you add some.</div>';
+    return;
+  }
+  let html = '';
+  let day = '';
+  for (const s of data.slots) {
+    const d = s.start.slice(0, 10);
+    if (d !== day) { day = d; html += `<div class="sched-day">${CP.esc(dayLabel(d))}</div>`; }
+    const b = s.booking;
+    html += `<div class="slot ${b ? 'booked' : ''}">
+      <span class="t">${CP.esc(timeLabel(s.label))}</span>
+      <span class="who">${b ? `Booked · ${CP.esc(b.ref)} · ${CP.esc(b.format)}` : 'Open'}</span>
+      ${b ? '' : `<button type="button" class="rm" data-start="${CP.esc(s.start)}" aria-label="Remove ${CP.esc(s.label)}" title="Remove this time">×</button>`}
+    </div>`;
+  }
+  slotListEl.innerHTML = html;
+  slotListEl.querySelectorAll('.rm').forEach((b) => {
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await staffApi(`/api/agent/slots/${encodeURIComponent(b.dataset.start)}`, undefined, 'DELETE');
+        flash(`Removed ${r.removed}.`);
+      } catch { flash('Could not remove that time. It may have just been booked.', true); }
+      loadSchedule();
+    };
+  });
+}
+
+async function addSlots(starts) {
+  const res = await fetch('/api/agent/slots', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Staff-Passcode': passcode },
+    body: JSON.stringify(starts.length === 1 ? { start: starts[0], name: agentName() } : { starts, name: agentName() }),
+  });
+  if (res.status === 401) return showLogin();
+  const r = await res.json();
+  if (!r.ok) flash(r.message, true);
+  else if (!r.added.length) flash('Those times are already open or have passed.', true);
+  else flash(`Opened ${r.added.length === 1 ? r.added[0] : `${r.added.length} times`}.`);
+  loadSchedule();
+}
+
+document.getElementById('slotForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (!slotTime.value) { flash('Pick a time, or use "Add standard day".', true); slotTime.focus(); return; }
+  addSlots([`${slotDate.value}T${slotTime.value}`]);
+});
+document.getElementById('addDay').onclick = () => {
+  if (!slotDate.value) { flash('Pick a date first.', true); return; }
+  addSlots(standardTimes.map((t) => `${slotDate.value}T${t}`));
+};
 
 const REQ_ICON = { refill: '💊', callback: '📞', appointment: '📅' };
 

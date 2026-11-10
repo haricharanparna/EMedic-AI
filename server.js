@@ -10,6 +10,7 @@ try { process.loadEnvFile(path.join(__dirname, '.env')); } catch { /* no .env fi
 const bot = require('./lib/bot');
 const actions = require('./lib/actions');
 const email = require('./lib/email');
+const schedule = require('./lib/schedule');
 const library = require('./lib/library');
 const { triageResult } = require('./lib/workflows');
 
@@ -216,6 +217,33 @@ async function route(req, res) {
         : `🔔 **Update on ${rec.ref}:** your provider wasn't able to approve this refill without a visit. A nurse will reach out about next steps, or you can book a video visit here.`);
       return { ok: true };
     });
+  }
+  // Appointment times the bot can offer: nurses add and remove them.
+  if (req.method === 'GET' && p === '/api/agent/slots') {
+    return send(res, 200, { timezone: schedule.TZ, standardTimes: schedule.STANDARD_TIMES, slots: schedule.upcoming() });
+  }
+  if (req.method === 'POST' && p === '/api/agent/slots') {
+    const body = await readBody(req);
+    const starts = Array.isArray(body.starts) ? body.starts.slice(0, 20) : [body.start];
+    // Adding a whole day at once skips times that are already open or already past.
+    const added = [];
+    const skipped = [];
+    for (const start of starts) {
+      try { added.push(schedule.addSlot(start, body.name).label); } catch (err) {
+        if (!(err instanceof schedule.ScheduleError)) throw err;
+        if (starts.length === 1) return send(res, err.status, { ok: false, error: err.code, message: err.message });
+        skipped.push(err.message);
+      }
+    }
+    return send(res, 200, { ok: true, added, skipped });
+  }
+  if (req.method === 'DELETE' && (m = p.match(/^\/api\/agent\/slots\/([^/]+)$/))) {
+    try {
+      return send(res, 200, { ok: true, ...schedule.removeSlot(decodeURIComponent(m[1])) });
+    } catch (err) {
+      if (!(err instanceof schedule.ScheduleError)) throw err;
+      return send(res, err.status, { ok: false, error: err.code, message: err.message });
+    }
   }
   if (req.method === 'POST' && (m = p.match(/^\/api\/agent\/callbacks\/([\w-]+)\/complete$/))) {
     return runAction(res, () => { actions.completeCallback(m[1]); return { ok: true }; });

@@ -34,8 +34,25 @@
       <div class="tabs" role="tablist">
         <button type="button" class="on" id="tabChats" role="tab">Chats <span class="count" id="chatCount" hidden></span></button>
         <button type="button" id="tabRequests" role="tab">Requests <span class="count" id="reqCount" hidden></span></button>
+        <button type="button" id="tabSchedule" role="tab">Schedule</button>
       </div>
       <div id="requests" hidden></div>
+      <div id="schedule" hidden>
+        <form class="sched-add" id="slotForm">
+          <div class="sched-title">Open appointment times</div>
+          <p class="sched-help">Patients can only book the times you open here. <span id="tzNote"></span></p>
+          <div class="sched-fields">
+            <input type="date" id="slotDate" aria-label="Date" required>
+            <input type="time" id="slotTime" aria-label="Time" step="300">
+          </div>
+          <div class="sched-buttons">
+            <button class="btn" type="submit" id="addSlot">Add time</button>
+            <button class="btn secondary" type="button" id="addDay" title="">Add standard day</button>
+          </div>
+          <div class="sched-msg" id="slotMsg" hidden></div>
+        </form>
+        <div id="slotList"></div>
+      </div>
       <div id="queue"><div class="empty">No conversations yet. Open the <a href="/" target="_blank">patient chat</a> and say hi.</div></div>
     </aside>
 
