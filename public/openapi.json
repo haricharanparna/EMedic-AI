@@ -74,6 +74,11 @@
           "emailSent": {
             "type": "boolean",
             "description": "Present when an email was requested: whether it was sent"
+          },
+          "videoLink": {
+            "type": "string",
+            "format": "uri",
+            "description": "Video visits only: a unique browser-based join link (Jitsi Meet). Also included in message."
           }
         }
       },

@@ -13,8 +13,8 @@ Book through the MyEMedic portal or app, here in chat, or by calling **(555) 010
 <!-- workflow: appointment -->
 
 ## Video visits (telehealth)
-Video visits are available **7 AM–11 PM every day** with an EMedic provider. They're covered by most insurance plans, or **$49 self-pay**. They work well for colds and flu, pink eye, rashes, UTIs, allergies, medication refills and mental health. They're **not for emergencies** like chest pain or trouble breathing. Join from the MyEMedic app on a phone or computer with a camera.
-<!-- keywords: telehealth video visit virtual online doctor telemedicine cost -->
+Video visits are available **7 AM–11 PM every day** with an EMedic provider. They're covered by most insurance plans, or **$49 self-pay**. They work well for colds and flu, pink eye, rashes, UTIs, allergies, medication refills and mental health. They're **not for emergencies** like chest pain or trouble breathing. When you book, you get a **personal video link** in the chat (and in your confirmation email if you add one). It opens in your browser on any phone or computer with a camera, so there's **no app to install**. Join about 5 minutes early.
+<!-- keywords: telehealth video visit virtual online doctor telemedicine cost link join zoom how -->
 <!-- workflow: appointment -->
 
 ## MyEMedic patient portal

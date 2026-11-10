@@ -241,6 +241,8 @@ server.listen(0, async () => {
       await chat(sid, slots.options[0]);
       await chat(sid, 'sore throat');
       const msgs = await chat(sid, 'Confirm booking');
+      // Video visits get a clickable join link in the chat.
+      assert.match(msgs[0].text, /\[Join your video visit\]\(https:\/\/meet\.jit\.si\/EMedic-APT-\d{6}-[0-9a-f]{8}\)/);
       return { apt: msgs[0].text.match(/APT-\d{6}/)[0], ask: msgs[0] };
     };
     // Bad input, then email with sending stubbed out (no real email leaves the test).
@@ -272,6 +274,9 @@ server.listen(0, async () => {
     assert.equal(sent[0].sender.email, 'clinic@example.com');
     assert.match(sent[0].subject, /appointment is confirmed/);
     assert.match(sent[0].htmlContent, new RegExp(apt2));
+    assert.match(sent[0].htmlContent, /Join video visit/);
+    assert.match(sent[0].htmlContent, /https:\/\/meet\.jit\.si\/EMedic-APT-/);
+    assert.match(sent[0].textContent, /Join your video visit: https:\/\/meet\.jit\.si\//);
     // Not configured: says so honestly, booking still stands.
     await book('test-email3');
     assert.match((await chat('test-email3', 'pat@example.com'))[1].text, /email isn't set up/);
@@ -292,6 +297,13 @@ server.listen(0, async () => {
     assert.equal(ok.emailSent, false);
     assert.match(ok.message, /You're booked/);
     assert.match(ok.message, /email isn't set up/);
+    // Video visits come back with a unique join link; in-person visits don't get one.
+    assert.match(ok.videoLink, /^https:\/\/meet\.jit\.si\/EMedic-APT-\d{6}-[0-9a-f]{8}$/);
+    assert.ok(ok.message.includes(ok.videoLink));
+    const inPerson = await (await call({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' })).json();
+    assert.equal(inPerson.videoLink, undefined);
+    const again = await (await call({ visitType: 'Sick visit', format: 'video', preference: 'earliest' })).json();
+    assert.notEqual(again.videoLink, ok.videoLink, 'each visit gets its own room');
   });
 
   await check('nurse approves refill and patient gets an update', async () => {
