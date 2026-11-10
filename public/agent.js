@@ -104,7 +104,7 @@ async function loadQueue() {
         ${s.priority && s.priority !== 'Normal' ? `<span class="pill high">${CP.esc(s.priority)}</span>` : ''}
         <span class="when">${CP.ago(s.escalatedAt || s.updatedAt)}</span>
       </div>
-      <div class="issue">${CP.esc(s.issue || 'Chatting with EMedic AI')}</div>
+      <div class="issue">${s.name ? `<b>${CP.esc(s.name)}</b> · ` : ''}${CP.esc(s.issue || 'Chatting with EMedic AI')}</div>
       <div class="last">${CP.esc(s.lastMessage || '')}</div>
     </button>`).join('');
   queueEl.querySelectorAll('.item').forEach((b) => { b.onclick = () => select(b.dataset.id); });
@@ -187,7 +187,8 @@ async function loadConvo() {
     logEl.innerHTML = s.messages.map((m) => {
       if (m.from === 'system') return `<div class="msg system">${CP.esc(m.text)}</div>`;
       const who = m.from === 'agent' ? `<div class="who">${CP.esc(m.name)}</div>`
-        : m.from === 'bot' ? '<div class="who" style="color:var(--muted)">EMedic AI (bot)</div>' : '';
+        : m.from === 'bot' ? '<div class="who" style="color:var(--muted)">EMedic AI (bot)</div>'
+        : s.name ? `<div class="who">${CP.esc(s.name)}</div>` : '';
       const body = m.from === 'user' ? `<p>${CP.esc(m.text)}</p>` : CP.md(m.text);
       const src = m.sources?.length ? `<div class="sources">${m.sources.map((x) => `<span>📄 ${CP.esc(x.heading)}</span>`).join('')}</div>` : '';
       return `<div class="msg ${m.from}">${who}${body}${src}</div>`;

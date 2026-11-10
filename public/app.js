@@ -9,6 +9,7 @@ const sendBtn = $('send');
 const KEY = 'emedic-session';
 const CHATS_KEY = 'emedic-chats';
 const INTRO_KEY = 'emedic-intro-seen';
+const NAME_KEY = 'emedic-name';
 const BOT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H7v14h9"/><path d="M7 12h3l1.2-2.8 1.9 5.6 1.2-2.8H17"/></svg>';
 const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
@@ -24,6 +25,30 @@ const known = new Set();   // their ids
 let seen = 0;              // count of server messages received
 let pendingEcho = 0;       // user messages drawn locally, still to be echoed by the server
 let busy = false;
+let myName = CP.store.get(NAME_KEY) || '';
+let serverName;            // the name the server last reported for this chat (undefined = not checked yet)
+
+// ---------------- Patient name (optional) ----------------
+const cleanName = (raw) => String(raw || '').replace(/<[^>]*>?/g, '').replace(/[^\p{L}' -]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 30)
+  .replace(/(^|[ -])(\p{L})/gu, (_, sep, c) => sep + c.toUpperCase());
+
+function setMyName(raw, { fromServer = false } = {}) {
+  const name = cleanName(raw);
+  if (name === myName) return;
+  myName = name;
+  CP.store.set(NAME_KEY, name);
+  renderName();
+  // The bot hears the new name with the next message; refresh the greeting now.
+  if (!fromServer && !isEmpty()) renderAll();
+}
+
+function renderName() {
+  $('heroName').textContent = myName ? ` ${myName}` : '';
+  if (document.activeElement !== $('nameInput')) $('nameInput').value = myName;
+  $('meAv').textContent = myName ? myName[0] : '?';
+  $('meText').textContent = myName || 'Add your name';
+  $('meBtn').classList.toggle('empty', !myName);
+}
 
 // ---------------- Recent chats (this browser only) ----------------
 function loadChats() {
@@ -83,7 +108,9 @@ function renderMessage(m, { animate = true } = {}) {
     let body = '';
     if (m.from === 'agent') body += `<div class="who-name">${CP.esc(m.name)} · EMedic Nurse</div>`;
     if (m.workflow) body += `<div class="tag">${CP.esc(m.workflow)}</div>`;
-    const text = m.from === 'agent' ? `<p>${CP.esc(m.text)}</p>` : CP.md(m.text);
+    // The greeting is created before we know their name, so personalize it here.
+    const raw = m.id === 0 && myName ? m.text.replace(/^Hi! /, `Hi ${myName}! `) : m.text;
+    const text = m.from === 'agent' ? `<p>${CP.esc(raw)}</p>` : CP.md(raw);
     const wrap = m.emergency ? 'card-alert' : m.update ? 'card-update' : m.declined ? 'card-declined' : '';
     body += wrap ? `<div class="${wrap}">${text}</div>` : text;
     if (m.general) body += '<div class="general-note">ℹ️ General health information, not from EMedic\'s library. Not a diagnosis.</div>';
@@ -145,6 +172,13 @@ function apply(data) {
   }
   seen = Math.max(seen, data.total);
   setStatus(data.status, data.agentName);
+  // They just told the bot their name in chat ("my name is David"). Only a *change* counts,
+  // so an older name stored on the server never overwrites one they edited here.
+  if (serverName === undefined) serverName = data.name ?? null;
+  else if ((data.name ?? null) !== serverName) {
+    serverName = data.name ?? null;
+    if (serverName) setMyName(serverName, { fromServer: true });
+  }
 
   // The hero stays until the patient says something.
   const started = pendingEcho > 0 || history.some((m) => m.from === 'user');
@@ -184,7 +218,7 @@ async function send(text) {
   rememberChat(text);
   showThinking();
   try {
-    apply(await CP.api('/api/chat', { sessionId: sid, message: text, since: seen }));
+    apply(await CP.api('/api/chat', { sessionId: sid, message: text, since: seen, name: myName || undefined }));
   } catch {
     $('thinking')?.remove();
     const err = document.createElement('div');
@@ -210,6 +244,7 @@ function resetThread() {
   known.clear();
   seen = 0;
   pendingEcho = 0;
+  serverName = undefined;
   log.innerHTML = '';
   setEmpty(true);
 }
@@ -250,6 +285,44 @@ form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); 
 document.querySelectorAll('[data-say]').forEach((b) => { b.onclick = () => { closeSide(); send(b.dataset.say); }; });
 $('newChat').onclick = newChat;
 $('newChatTop').onclick = newChat;
+
+// ---------------- Name field + sidebar chip ----------------
+$('nameForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  setMyName($('nameInput').value);
+  $('nameInput').value = myName;
+  $('nameForm').classList.add('saved');
+  $('nameSave').textContent = myName ? 'Saved ✓' : 'Save';
+  setTimeout(() => { $('nameForm').classList.remove('saved'); $('nameSave').textContent = 'Save'; }, 1600);
+  input.focus();
+});
+
+// Edit the name in place from the sidebar.
+$('meBtn').onclick = () => {
+  const text = $('meText');
+  if (text.querySelector('input')) return;
+  const field = document.createElement('input');
+  field.className = 'me-input';
+  field.maxLength = 30;
+  field.placeholder = 'Your first name';
+  field.value = myName;
+  text.textContent = '';
+  text.appendChild(field);
+  field.focus();
+  let finished = false;
+  const done = (save) => {
+    if (finished) return;
+    finished = true;
+    if (save) setMyName(field.value);
+    renderName();
+  };
+  field.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); done(true); }
+    if (e.key === 'Escape') done(false);
+  });
+  field.addEventListener('blur', () => done(true));
+};
+renderName();
 
 // ---------------- Sidebar (mobile) ----------------
 const openSide = () => document.body.classList.add('side-open');

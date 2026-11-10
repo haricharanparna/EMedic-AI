@@ -151,6 +151,28 @@ server.listen(0, async () => {
     assert.equal((await get(`/api/session/${sid}`)).status, 'bot');
   });
 
+  await check('patient name: from the welcome field and from "my name is"', async () => {
+    // Sent with the message (the welcome-screen field).
+    const { messages } = await post('/api/chat', { sessionId: 'test-name-field', message: 'Myself', name: '  david<script> ' });
+    assert.match(messages.at(-1).text, /^Thanks, David!/);
+    const [ans] = await chat('test-name-field', "What's a normal blood pressure?");
+    assert.match(ans.text, /^David, here's what/);
+    // Typed in chat.
+    const [hi] = await chat('test-name-chat', 'my name is maria lopez');
+    assert.match(hi.text, /Nice to meet you, Maria Lopez!/);
+    assert.equal((await get('/api/session/test-name-chat')).name, 'Maria Lopez');
+    // A symptom isn't a name.
+    await chat('test-name-chat', 'Myself');
+    await chat('test-name-chat', 'call me ill');
+    assert.equal((await get('/api/session/test-name-chat')).name, 'Maria Lopez');
+    // The nurse sees it.
+    await chat('test-name-chat', 'Talk to a nurse');
+    await chat('test-name-chat', 'Chat with a nurse now');
+    const s = await (await fetch(`${base}/api/agent/sessions/test-name-chat`, { headers })).json();
+    assert.equal(s.name, 'Maria Lopez');
+    assert.equal(s.summary.patientName, 'Maria Lopez');
+  });
+
   await check('nurse console requires the passcode', async () => {
     assert.equal((await fetch(`${base}/api/agent/sessions`)).status, 401);
     const wrong = await fetch(`${base}/api/agent/sessions`, { headers: { 'X-Staff-Passcode': 'guess' } });

@@ -38,6 +38,7 @@ window.CP = {
       <div class="row">
         <span class="pill ${s.priority === 'Normal' ? '' : 'high'}">${e(s.priority)} priority</span>
         <span class="pill">${e(s.sentiment)}</span>
+        ${s.patientName ? `<span class="pill">Patient: ${e(s.patientName)}</span>` : ''}
         ${s.askingFor && s.askingFor !== 'Not specified' ? `<span class="pill">For: ${e(s.askingFor)}</span>` : ''}
       </div>
       <div class="label">Issue</div><div>${e(s.issue)}</div>
