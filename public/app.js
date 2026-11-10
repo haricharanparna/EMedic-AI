@@ -331,6 +331,7 @@ function newChat() {
 function autosize() {
   input.style.height = 'auto';
   input.style.height = `${Math.min(input.scrollHeight, 200)}px`;
+  input.style.overflowY = input.scrollHeight > 200 ? 'auto' : 'hidden'; // scrollbar only when it's really needed
 }
 function updateSend() { sendBtn.disabled = busy || !input.value.trim(); }
 

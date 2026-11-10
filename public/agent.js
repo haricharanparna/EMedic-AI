@@ -80,6 +80,8 @@ let lastCount = -1;
 let lastWaiting = new Set();
 
 const STATUS_LABEL = { waiting: 'Needs you', human: 'Live', bot: 'With bot' };
+// One-line preview without markdown (**bold**, [1], [text](url), "- " bullets).
+const plain = (t) => String(t || '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\[\d{1,2}\]/g, '').replace(/\*\*/g, '').replace(/^\s*[-•]\s+/gm, '').replace(/\s+/g, ' ').trim();
 
 async function loadQueue() {
   let list;
@@ -106,7 +108,7 @@ async function loadQueue() {
         <span class="when">${CP.ago(s.escalatedAt || s.updatedAt)}</span>
       </div>
       <div class="issue">${s.name ? `<b>${CP.esc(s.name)}</b> · ` : ''}${CP.esc(s.issue || 'Chatting with EMedic AI')}</div>
-      <div class="last">${CP.esc(s.lastMessage || '')}</div>
+      <div class="last">${CP.esc(plain(s.lastMessage))}</div>
     </button>`).join('');
   queueEl.querySelectorAll('.item').forEach((b) => { b.onclick = () => select(b.dataset.id); });
 }
