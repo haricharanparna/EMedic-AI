@@ -131,12 +131,13 @@ async function route(req, res) {
 
   // ---- Patient chat API ----
   if (req.method === 'POST' && p === '/api/chat') {
-    const { sessionId, message, since, name } = await readBody(req);
+    const { sessionId, message, since, name, email } = await readBody(req);
     if (!ID_RE.test(sessionId || '') || typeof message !== 'string' || !message.trim()) {
       return send(res, 400, { error: 'sessionId and message are required' });
     }
     const s = bot.getSession(sessionId);
     if (typeof name === 'string') bot.setName(s, name);
+    if (typeof email === 'string') bot.setEmail(s, email);
     await bot.handleMessage(s, message.trim().slice(0, 1000));
     return send(res, 200, bot.messagesSince(s, since));
   }

@@ -28,6 +28,8 @@ let seen = 0;              // count of server messages received
 let pendingEcho = 0;       // user messages drawn locally, still to be echoed by the server
 let busy = false;
 let myName = CP.store.get(NAME_KEY) || '';
+const EMAIL_KEY = 'emedic-email';
+let myEmail = CP.store.get(EMAIL_KEY) || '';   // sent with each message so bookings can email the confirmation
 let serverName;            // the name the server last reported for this chat (undefined = not checked yet)
 
 // ---------------- Patient name (optional) ----------------
@@ -48,8 +50,9 @@ function renderName() {
   $('heroName').textContent = myName ? ` ${myName}` : '';
   if (document.activeElement !== $('nameInput')) $('nameInput').value = myName;
   $('meAv').textContent = myName ? myName[0] : '?';
-  $('meText').textContent = myName || 'Add your name';
+  $('meText').textContent = myName || 'Add your name & email';
   $('meBtn').classList.toggle('empty', !myName);
+  $('meBtn').title = myEmail ? `Booking confirmations go to ${myEmail}` : 'Add your name and email in Settings';
 }
 
 // ---------------- Recent chats (this browser only) ----------------
@@ -277,7 +280,7 @@ async function send(text) {
   rememberChat(text);
   showThinking();
   try {
-    apply(await CP.api('/api/chat', { sessionId: sid, message: text, since: seen, name: myName || undefined }));
+    apply(await CP.api('/api/chat', { sessionId: sid, message: text, since: seen, name: myName || undefined, email: myEmail }));
   } catch {
     $('thinking')?.remove();
     const err = document.createElement('div');
@@ -357,32 +360,75 @@ $('nameForm').addEventListener('submit', (e) => {
   input.focus();
 });
 
-// Edit the name in place from the sidebar.
-$('meBtn').onclick = () => {
-  const text = $('meText');
-  if (text.querySelector('input')) return;
-  const field = document.createElement('input');
-  field.className = 'me-input';
-  field.maxLength = 30;
-  field.placeholder = 'Your first name';
-  field.value = myName;
-  text.textContent = '';
-  text.appendChild(field);
-  field.focus();
-  let finished = false;
-  const done = (save) => {
-    if (finished) return;
-    finished = true;
-    if (save) setMyName(field.value);
-    renderName();
-  };
-  field.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); done(true); }
-    if (e.key === 'Escape') done(false);
-  });
-  field.addEventListener('blur', () => done(true));
-};
+// The sidebar name chip opens Settings, where name and email live together.
+$('meBtn').onclick = () => openSettings('setName');
 renderName();
+
+// ---------------- Settings: your details, appearance, accessibility ----------------
+const EMAIL_OK = /^[^\s@<>()[\],;:"]+@[^\s@<>()[\],;:"]+\.[a-z]{2,}$/i;
+let lastFocus = null;
+
+function openSettings(focusId) {
+  lastFocus = document.activeElement;
+  $('setName').value = myName;
+  $('setEmail').value = myEmail;
+  $('setErr').hidden = true;
+  $('setOk').hidden = true;
+  paintSettings();
+  $('settings').hidden = false;
+  closeSide();
+  (focusId ? $(focusId) : $('settingsClose')).focus();
+}
+function closeSettings() {
+  $('settings').hidden = true;
+  lastFocus?.focus?.();
+}
+
+// Reflect the current choices on the segmented buttons and switches.
+function paintSettings() {
+  const a = CP.a11y.get();
+  const mark = (group, value) => $(group).querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === value)));
+  mark('segTheme', CP.theme.choice());
+  mark('segText', a.text === 'lg' || a.text === 'xl' ? a.text : 'normal');
+  document.querySelectorAll('#settings .switch').forEach((s) => { s.checked = Boolean(a[s.dataset.opt]); });
+}
+
+$('settingsBtn').onclick = () => openSettings();
+$('settingsClose').onclick = closeSettings;
+$('settings').addEventListener('click', (e) => { if (e.target.id === 'settings') closeSettings(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('settings').hidden) closeSettings(); });
+document.addEventListener('themechange', paintSettings);
+
+$('segTheme').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (b) { CP.theme.set(b.dataset.v); paintSettings(); }
+});
+$('segText').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (b) { CP.a11y.set({ text: b.dataset.v }); paintSettings(); }
+});
+document.querySelectorAll('#settings .switch').forEach((s) => {
+  s.addEventListener('change', () => CP.a11y.set({ [s.dataset.opt]: s.checked }));
+});
+$('a11yReset').onclick = () => { CP.a11y.set({ text: 'normal', hc: false, rm: false, readable: false }); paintSettings(); };
+
+$('detailsForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = $('setEmail').value.trim();
+  if (email && !EMAIL_OK.test(email)) {
+    $('setErr').textContent = "That email doesn't look right. Try something like name@example.com.";
+    $('setErr').hidden = false;
+    $('setEmail').focus();
+    return;
+  }
+  $('setErr').hidden = true;
+  setMyName($('setName').value);
+  myEmail = email;
+  CP.store.set(EMAIL_KEY, email);
+  renderName();
+  $('setOk').hidden = false;
+  setTimeout(() => { $('setOk').hidden = true; }, 2000);
+});
 
 // ---------------- Sidebar (mobile) ----------------
 const openSide = () => document.body.classList.add('side-open');

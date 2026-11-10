@@ -210,7 +210,10 @@ server.listen(0, async () => {
     const none = await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' }) });
     assert.equal(none.status, 409);
     // Put a normal week back for the tests that follow.
-    for (const d of ['2031-03-05', '2031-03-06', '2031-03-07']) await staff('POST', '/api/agent/slots', { starts: ['09:00', '10:15', '13:00', '15:30'].map((t) => `${d}T${t}`) });
+    for (let day = 5; day <= 18; day++) {
+      const d = `2031-03-${String(day).padStart(2, '0')}`;
+      await staff('POST', '/api/agent/slots', { starts: ['09:00', '10:15', '13:00', '15:30'].map((t) => `${d}T${t}`) });
+    }
   });
 
   await check('nurse console requires the passcode', async () => {
@@ -324,6 +327,46 @@ server.listen(0, async () => {
     await book('test-skip');
     assert.match((await chat('test-skip', 'No thanks'))[0].text, /Your confirmation number is \*\*APT-\d{6}\*\*/);
     assert.ok(apt);
+  });
+
+  await check('email saved in Settings: booking emails it without asking', async () => {
+    // The chat page sends the saved email with every message.
+    const say = async (sid, message, email) => {
+      const { messages } = await post('/api/chat', { sessionId: sid, message, email });
+      return messages.slice(messages.findLastIndex((m) => m.from === 'user') + 1);
+    };
+    const book = async (sid, email) => {
+      await say(sid, 'Myself', email);
+      await say(sid, 'Book an appointment', email);
+      await say(sid, 'Follow-up visit', email);
+      const [slots] = await say(sid, 'In person', email);
+      await say(sid, slots.options[0], email);
+      await say(sid, 'skip', email);
+      return say(sid, 'Confirm booking', email);
+    };
+    const realFetch = global.fetch;
+    const sent = [];
+    process.env.EMAIL_API_KEY = 'test-key';
+    process.env.EMAIL_FROM = 'clinic@example.com';
+    global.fetch = async (url, opts) => {
+      if (String(url).includes('api.brevo.com')) { sent.push(JSON.parse(opts.body)); return new Response('{}', { status: 201 }); }
+      return realFetch(url, opts);
+    };
+    let msgs;
+    try { msgs = await book('test-saved-email', 'saved@example.com'); } finally {
+      global.fetch = realFetch;
+      delete process.env.EMAIL_API_KEY;
+      delete process.env.EMAIL_FROM;
+    }
+    assert.match(msgs[0].text, /You're booked!/);
+    assert.match(msgs[0].text, /Sending your confirmation to \*\*saved@example.com\*\* \(from your settings\)/);
+    assert.ok(!msgs.some((m) => /Want a confirmation\?/.test(m.text)), 'no need to ask');
+    assert.match(msgs[1].text, /Confirmation sent to \*\*saved@example.com\*\*/);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to[0].email, 'saved@example.com');
+    // A malformed saved email is ignored, so the bot asks as usual.
+    const asked = await book('test-bad-saved-email', 'not-an-email');
+    assert.match(asked[0].text, /Want a confirmation\?/);
   });
 
   await check('actions API: booking with an email', async () => {

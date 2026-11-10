@@ -237,7 +237,7 @@ body.ready .chat.reveal { transition-duration: 0.9s, 1s; }
 .skip:hover { color: rgba(255, 255, 255, 0.8); }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition: none !important; }
 }
 
 /* ---------- Staff console ---------- */
@@ -362,3 +362,13 @@ body.ready .chat.reveal { transition-duration: 0.9s, 1s; }
 .hint b { color: var(--ink); font-size: 15px; }
 .hint-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; margin-bottom: 6px; background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand); }
 .hint-icon svg { width: 26px; height: 26px; }
+
+/* Accessibility options set in the patient chat's Settings also apply here. */
+:root.hc.hc { --muted: color-mix(in srgb, var(--ink) 88%, var(--bg)); --line: color-mix(in srgb, var(--ink) 45%, var(--bg)); }
+html.hc a { text-decoration: underline; }
+html.hc :focus-visible { outline: 3px solid var(--brand) !important; outline-offset: 2px; }
+:root.readable.readable { font-family: "Atkinson Hyperlegible", "Plus Jakarta Sans", system-ui, sans-serif; }
+html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+}

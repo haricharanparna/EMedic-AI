@@ -364,7 +364,7 @@ kbd { font: inherit; font-size: 11.5px; padding: 1px 6px; border-radius: 5px; bo
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition: none !important; }
 }
 
 /* Short windows (landscape phones, small laptops): keep the pinned intro bar compact. */
@@ -413,3 +413,58 @@ kbd { font: inherit; font-size: 11.5px; padding: 1px 6px; border-radius: 5px; bo
 /* Source markers [1] inside answers */
 .cite { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; margin: 0 1px; border-radius: 6px; font-size: 10.5px; font-weight: 700; line-height: 1; vertical-align: super; background: var(--brand-soft); color: var(--brand); }
 .composer textarea { overflow-y: hidden; scrollbar-width: thin; }
+
+/* ================= Settings panel ================= */
+.settings-card { width: min(560px, 100%); padding: 26px 26px 22px; }
+.settings-card h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.02em; }
+.set-section { padding: 18px 0; border-top: 1px solid var(--line); }
+.settings-card h2 + .set-section { border-top: 0; padding-top: 10px; }
+.set-section h3 { margin: 0 0 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.set-help { margin: -4px 0 12px; font-size: 13.5px; color: var(--muted); }
+.set-form { display: grid; gap: 6px; }
+.set-form label { font-size: 13.5px; font-weight: 600; margin-top: 4px; }
+.set-form input { font: inherit; font-size: 15px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.set-form input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+.set-err { font-size: 13px; color: var(--danger); }
+.set-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.set-save { border: 0; border-radius: 999px; padding: 9px 18px; font-weight: 600; font-size: 14px; background: var(--grad); color: #fff; }
+.set-ok { font-size: 13.5px; font-weight: 600; color: var(--ok); }
+.set-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 4px 0 10px; font-weight: 600; font-size: 14.5px; }
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+.seg button { border: 0; background: none; color: var(--muted); font-size: 13.5px; font-weight: 600; padding: 6px 12px; border-radius: 9px; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.switch-line { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; cursor: pointer; }
+.switch-line span { display: grid; gap: 1px; }
+.switch-line b { font-size: 14.5px; font-weight: 600; }
+.switch-line small { font-size: 13px; color: var(--muted); }
+.switch { appearance: none; -webkit-appearance: none; flex: none; width: 44px; height: 26px; margin: 0; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; transition: background 0.2s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 0.2s var(--ease); }
+.switch:checked { background: var(--brand); }
+.switch:checked::after { transform: translateX(18px); }
+.switch:focus-visible, .seg button:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 60%, transparent); outline-offset: 2px; }
+.set-reset { margin-top: 6px; border: 0; background: none; padding: 4px 0; color: var(--muted); font-size: 13px; text-decoration: underline; }
+.set-reset:hover { color: var(--ink); }
+
+/* ================= Accessibility options ================= */
+/* Text size: a multiplier on the text sizes (messages, the message box, buttons, sidebar, settings). */
+html[data-text="lg"] { --fs: 1.15; }
+html[data-text="xl"] { --fs: 1.3; }
+html[data-text] body { font-size: calc(15.5px * var(--fs)); }
+html[data-text] .hero h1 { font-size: calc(clamp(30px, 4.5vw, 42px) * var(--fs)); }
+html[data-text] .hero > p { font-size: calc(16.5px * var(--fs)); }
+html[data-text] :is(.who b, .switch-line b, .set-line, .title) { font-size: calc(15px * var(--fs)); }
+html[data-text] :is(.chips button, .suggest button, .quick button, .recent .open, .new-chat, .about-btn, .me-btn, .who small, .summary, .set-help, .switch-line small, .seg button, .set-form label, .set-form input, .name-row input, .name-field label, .who-label, .suggest-label, .status, .thinking) { font-size: calc(14px * var(--fs)); }
+html[data-text] :is(.sources a, .general-note, .row.system span, .tag, .sos, .disclaimer, .side-label, .pill) { font-size: calc(12.5px * var(--fs)); }
+/* High contrast: stronger secondary text and borders, visible focus, underlined links. */
+:root.hc.hc { --muted: color-mix(in srgb, var(--ink) 88%, var(--bg)); --faint: color-mix(in srgb, var(--ink) 76%, var(--bg)); --line: color-mix(in srgb, var(--ink) 45%, var(--bg)); }
+html.hc a { text-decoration: underline; }
+html.hc :focus-visible { outline: 3px solid var(--brand) !important; outline-offset: 2px; }
+html.hc .chips button, html.hc .who button, html.hc .suggest button, html.hc .composer { border-width: 2px; }
+/* Easy-to-read font */
+:root.readable.readable { font-family: "Atkinson Hyperlegible", "Inter", system-ui, sans-serif; letter-spacing: 0.01em; }
+/* Reduce motion (also honors the device setting) */
+html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; scroll-behavior: auto !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; scroll-behavior: auto !important; }
+}

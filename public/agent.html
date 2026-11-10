@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>try{var t=localStorage.getItem('emedic-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script>try{var r=document.documentElement,t=localStorage.getItem('emedic-theme');if(t==='light'||t==='dark')r.dataset.theme=t;var a=JSON.parse(localStorage.getItem('emedic-a11y')||'{}');if(a.text==='lg'||a.text==='xl')r.dataset.text=a.text;if(a.hc)r.classList.add('hc');if(a.rm)r.classList.add('rm');if(a.readable){r.classList.add('readable');var l=document.createElement('link');l.id='readableFont';l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap';document.head.appendChild(l)}}catch(e){}</script>
   <title>EMedic AI Nurse Console</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='7' fill='%230f766e'/><path d='M16 5.5H7.5v13H16' fill='none' stroke='white' stroke-width='1.8'/><path d='M7.5 12h2.6l1.1-2.6 1.8 5.2 1.1-2.6H16.5' stroke='white' stroke-width='1.8' stroke-linecap='round'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
