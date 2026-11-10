@@ -14,6 +14,8 @@ const BOT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-wid
 const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
 const PRECHAT = ['Myself', 'My child', 'Someone I care for'];
+// The splash (with the intro) is removed once the app opens, so keep a copy for the About dialog.
+const INTRO_HTML = $('introBody').innerHTML;
 
 const newId = () => 's-' + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now());
 
@@ -333,7 +335,7 @@ $('scrim').onclick = closeSide;
 
 // ---------------- About dialog ----------------
 $('aboutBtn').onclick = () => {
-  $('aboutBody').innerHTML = $('introBody').innerHTML;
+  $('aboutBody').innerHTML = INTRO_HTML;
   $('about').hidden = false;
   closeSide();
 };
