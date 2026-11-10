@@ -372,3 +372,4 @@ html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !imp
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
+.sched-fields .span2 { grid-column: 1 / -1; width: 100%; min-width: 0; font: inherit; font-size: 13px; padding: 8px 9px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); }

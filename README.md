@@ -20,6 +20,7 @@ EMedic AI is a patient support bot for **EMedic**, a fictional health system. Pa
 5. **Real actions, saved and trackable.** Bookings, cancellations, reschedules, refill requests and callbacks are stored in `data/store.json`. Patients can manage an appointment by confirmation number ("reschedule APT-123456") or check a refill ("status of RX-123456").
 6. **Good judgment.** It declines diagnosis ("do I have strep?"), prescribing, controlled substances, and dose calculations for a specific child. Each refusal is kind, and it then still shares safe library information or routes to the right next step.
 7. **Nurse Console Requests tab.** Nurses see every refill, callback and booking. When they **Approve** or **Deny** a refill, the patient gets a live update in their chat.
+   **Booking:** a visit-details form in the chat (name, date of birth, phone, email, clinic, insurance and member ID, language, reason, consent), then **choose your nurse** from cards filtered by clinic, visit type and video, with speakers of your language first. **Meet our nurses** in the sidebar is a filterable directory with "Book with" buttons.
    **Schedule tab:** nurses open the appointment times patients can book (one time, or a standard day in one click) and remove open ones. The bot and the Actions API only offer those times. A new install starts with a default week. Times use `CLINIC_TZ` (default `America/New_York`).
 8. **Actions API** (`/api/actions/*`, key-protected, spec at `/openapi.json`). External agents, like an eGain AI Agent's API nodes, can take the same actions over REST. Add `?soft=1` to get friendly `ok:false` errors instead of HTTP errors.
 9. **Public health library** at `/library`. Export it for upload with `node scripts/export-library.js`, which writes `export/library/*.html`.
@@ -96,6 +97,7 @@ EGAIN-GUIDE.md       Step-by-step build of the eGain AI Agent entry
 lib/llm.js           Optional AI calls (grounded answers, general health info, summaries)
 lib/email.js         Optional booking confirmation emails (Brevo HTTP API)
 lib/schedule.js      Appointment times the nurses open in the Schedule tab
+lib/nurses.js        The care team (fictional nurses), clinics and languages
 knowledge/*.md       The health library. Edit these to change what the bot knows
 public/              Patient chat (index.html, app.js) and Nurse Console (agent.html, agent.js)
 test/smoke.js        End-to-end tests

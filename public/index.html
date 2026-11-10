@@ -111,6 +111,7 @@
           <button data-say="Check a refill status"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>Check a refill status</button>
           <button data-say="Book an appointment"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg></span>Book an appointment</button>
           <button data-say="Change or cancel an appointment"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span>Change or cancel a visit</button>
+          <button type="button" id="nursesBtn"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Meet our nurses</button>
           <button data-say="Talk to a nurse"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 15a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M3 15a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z"/></svg></span>Talk to a nurse</button>
         </nav>
       </div>
@@ -189,6 +190,23 @@
         <p class="disclaimer">General health information, not medical advice. In an emergency, call 911. Demo with a fictional health system.</p>
       </div>
     </main>
+  </div>
+
+  <!-- Nurse directory: browse the care team and book with someone -->
+  <div class="modal" id="nursesModal" hidden>
+    <div class="modal-card nurses-card" role="dialog" aria-modal="true" aria-labelledby="nursesTitle">
+      <button class="icon-btn modal-close" id="nursesClose" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+      <h2 id="nursesTitle">Meet our nurses</h2>
+      <p class="set-help">Pick someone you'd like to see. Every nurse works at one clinic, and many also do video visits.</p>
+      <div class="dir-filters">
+        <select id="dirLocation" aria-label="Filter by clinic"><option value="">All clinics</option></select>
+        <select id="dirLanguage" aria-label="Filter by language"><option value="">Any language</option></select>
+        <label class="dir-video"><input type="checkbox" id="dirVideo"> Video visits</label>
+      </div>
+      <div class="nurse-cards dir-grid" id="dirGrid"><div class="dir-empty">Loading…</div></div>
+    </div>
   </div>
 
   <!-- Settings: your details, appearance, accessibility -->

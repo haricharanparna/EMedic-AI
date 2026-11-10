@@ -11,6 +11,7 @@ const bot = require('./lib/bot');
 const actions = require('./lib/actions');
 const email = require('./lib/email');
 const schedule = require('./lib/schedule');
+const nurses = require('./lib/nurses');
 const library = require('./lib/library');
 const { triageResult } = require('./lib/workflows');
 
@@ -80,6 +81,16 @@ function serveStatic(res, urlPath) {
 // Run an action and reply with its result, or with its friendly error.
 // soft = true answers errors with HTTP 200 + ok:false, so a no-code workflow (like eGain's API node)
 // can branch on `ok` and still show the friendly `message`, instead of landing in a generic error path.
+// Nurses with their next open time, filtered by ?location=&language=&video=1&visitType=.
+function nurseDirectory(q) {
+  const loc = q.get('location') ? nurses.location(q.get('location')) : null;
+  const lang = q.get('language');
+  return nurses.NURSES
+    .filter((n) => (!loc || n.location === loc.id) && (!lang || n.languages.some((l) => l.toLowerCase() === lang.toLowerCase()))
+      && (!q.get('video') || n.video) && (!q.get('visitType') || n.visits.includes(q.get('visitType'))))
+    .map((n) => nurses.card(n, { next: actions.listSlots({ nurseIds: [n.id], count: 1 })[0] || null }));
+}
+
 async function runAction(res, fn, headers, soft = false) {
   try {
     return send(res, 200, { ok: true, ...(await fn()) }, headers);
@@ -131,14 +142,14 @@ async function route(req, res) {
 
   // ---- Patient chat API ----
   if (req.method === 'POST' && p === '/api/chat') {
-    const { sessionId, message, since, name, email } = await readBody(req);
+    const { sessionId, message, since, name, email, form } = await readBody(req);
     if (!ID_RE.test(sessionId || '') || typeof message !== 'string' || !message.trim()) {
       return send(res, 400, { error: 'sessionId and message are required' });
     }
     const s = bot.getSession(sessionId);
     if (typeof name === 'string') bot.setName(s, name);
     if (typeof email === 'string') bot.setEmail(s, email);
-    await bot.handleMessage(s, message.trim().slice(0, 1000));
+    await bot.handleMessage(s, message.trim().slice(0, 1000), { form: form && typeof form === 'object' ? form : undefined });
     return send(res, 200, bot.messagesSince(s, since));
   }
   if (req.method === 'GET' && (m = p.match(/^\/api\/session\/([\w-]+)$/))) {
@@ -157,9 +168,20 @@ async function route(req, res) {
     const ref = (s) => decodeURIComponent(s);
 
     if (req.method === 'GET' && p === '/api/actions/slots') {
+      // Optional ?nurse=maria-gonzalez (or a name) limits it to that nurse's times.
       return act(() => {
-        const slots = actions.listSlots();
-        return { slots, message: `Next available times: ${slots.join('; ')}.` };
+        const wanted = url(req).searchParams.get('nurse');
+        const nurse = wanted ? nurses.get(wanted) || nurses.find(wanted) : null;
+        if (wanted && !nurse) throw new actions.ActionError(404, 'not_found', `I couldn't find a nurse called ${wanted}.`);
+        const slots = actions.listSlots({ nurseIds: nurse ? [nurse.id] : undefined });
+        const who = nurse ? ` with ${nurse.name}` : '';
+        return { slots, message: slots.length ? `Next available times${who}: ${slots.join('; ')}.` : `There are no open times${who} right now.` };
+      });
+    }
+    if (req.method === 'GET' && p === '/api/actions/nurses') {
+      return act(() => {
+        const list = nurseDirectory(url(req).searchParams);
+        return { nurses: list, message: list.length ? `Our nurses: ${list.map((n) => `${n.name} (${n.title.split(',')[0]}, ${n.location}${n.video ? ', video' : ''})`).join('; ')}.` : 'No nurses match that.' };
       });
     }
     if (req.method === 'POST' && p === '/api/actions/appointments') {
@@ -221,7 +243,7 @@ async function route(req, res) {
   }
   // Appointment times the bot can offer: nurses add and remove them.
   if (req.method === 'GET' && p === '/api/agent/slots') {
-    return send(res, 200, { timezone: schedule.TZ, standardTimes: schedule.STANDARD_TIMES, slots: schedule.upcoming() });
+    return send(res, 200, { timezone: schedule.TZ, standardTimes: schedule.STANDARD_TIMES, slots: schedule.upcoming(), nurses: nurses.NURSES.map((n) => ({ id: n.id, name: n.name, title: n.title })) });
   }
   if (req.method === 'POST' && p === '/api/agent/slots') {
     const body = await readBody(req);
@@ -230,7 +252,7 @@ async function route(req, res) {
     const added = [];
     const skipped = [];
     for (const start of starts) {
-      try { added.push(schedule.addSlot(start, body.name).label); } catch (err) {
+      try { added.push(schedule.addSlot(start, body.name, body.nurseId).label); } catch (err) {
         if (!(err instanceof schedule.ScheduleError)) throw err;
         if (starts.length === 1) return send(res, err.status, { ok: false, error: err.code, message: err.message });
         skipped.push(err.message);
@@ -275,6 +297,10 @@ async function route(req, res) {
     return doc ? sendHtml(res, library.renderDoc(doc)) : send(res, 404, { error: 'not found' });
   }
 
+  // Public nurse directory for the "Meet our nurses" page (no patient data).
+  if (req.method === 'GET' && p === '/api/nurses') {
+    return send(res, 200, { locations: nurses.LOCATIONS, languages: nurses.LANGUAGES, nurses: nurseDirectory(url(req).searchParams) });
+  }
   if (req.method === 'GET' && p === '/api/health') return send(res, 200, { ok: true, llm: bot.llmEnabled() });
   if (req.method === 'GET' && !p.startsWith('/api/')) return serveStatic(res, p);
   return send(res, 404, { error: 'not found' });

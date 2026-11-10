@@ -79,6 +79,21 @@
             "type": "string",
             "format": "uri",
             "description": "Video visits only: a unique browser-based join link (Jitsi Meet). Also included in message."
+          },
+          "nurseId": {
+            "type": "string"
+          },
+          "nurseName": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "insurance": {
+            "type": "string"
           }
         }
       },
@@ -174,7 +189,18 @@
           "401": {
             "$ref": "#/components/responses/Err"
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "nurse",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only this nurse's times (id or name)"
+          }
+        ]
       }
     },
     "/api/actions/appointments": {
@@ -229,6 +255,38 @@
                   "preference": {
                     "type": "string",
                     "description": "Instead of time: \"earliest\", \"morning\" or \"afternoon\"."
+                  },
+                  "nurseId": {
+                    "type": "string",
+                    "description": "Optional nurse id from listNurses (e.g. \"maria-gonzalez\"). `nurse` with a name also works."
+                  },
+                  "nurse": {
+                    "type": "string",
+                    "description": "Optional nurse name, e.g. \"Maria\"."
+                  },
+                  "location": {
+                    "type": "string",
+                    "description": "In-person only: \"main\", \"northgate\" or \"center\" (or the clinic name)."
+                  },
+                  "patientName": {
+                    "type": "string"
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "description": "MM/DD/YYYY or YYYY-MM-DD"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "insurance": {
+                    "type": "string",
+                    "description": "Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Medicare, Medicaid, Other insurance, or Self-pay (no insurance)"
+                  },
+                  "memberId": {
+                    "type": "string"
+                  },
+                  "language": {
+                    "type": "string"
                   }
                 }
               }
@@ -624,6 +682,74 @@
           },
           "400": {
             "$ref": "#/components/responses/Err"
+          }
+        }
+      }
+    },
+    "/api/actions/nurses": {
+      "get": {
+        "operationId": "listNurses",
+        "summary": "List the nurses patients can book with",
+        "description": "Each nurse has a clinic, languages, specialties, whether they do video visits, and their next open time. `message` is a ready-to-say summary.",
+        "parameters": [
+          {
+            "name": "location",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "main, northgate or center"
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "video",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            },
+            "description": "Only nurses who do video visits"
+          },
+          {
+            "name": "visitType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nurses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "nurses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

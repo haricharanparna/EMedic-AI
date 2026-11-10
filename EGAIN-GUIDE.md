@@ -184,6 +184,9 @@ Free-text answers are fine. The API understands answers like "6 weeks", "pretty 
 | 5 | **Question (Select)** | `Want a confirmation email?` `Yes, email me` · `No thanks`. On **No thanks**, skip to node 7. |
 | 6 | **Email** | `What email should we send it to?` → Variable `email` |
 | 7 | **API** | **POST** `APP/api/actions/appointments?soft=1` · Body `{"visitType":"{{visitType}}","format":"{{format}}","preference":"{{preference}}","reason":"{{reason}}","email":"{{email}}"}` · Map `ok` → `bookOk`, `message` → `bookMessage`, `ref` → `aptRef` |
+
+> **Optional extras the booking API accepts** (add Question nodes for any you want): `nurse` (a name like `Maria`; list them with **GET** `APP/api/actions/nurses?location=northgate` → map `message`), `location` (`main`, `northgate` or `center`, in-person only), `patientName`, `dateOfBirth`, `phone`, `insurance` (Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Medicare, Medicaid, Other insurance, Self-pay (no insurance)), `memberId`, `language`. The reply's `message` then says who the visit is with and where.
+
 | 8 | **Statement** *(Success)* | `{{bookMessage}}` (for example: *"You're booked for Tue, Nov 10, 1:00 PM … Confirmation APT-482913 … Confirmation sent to pat@example.com."*) |
 | 9 | **Statement** *(Error/Timeout)* | `Booking is unavailable right now. Call (555) 010-2273 or try again in a moment.` |
 

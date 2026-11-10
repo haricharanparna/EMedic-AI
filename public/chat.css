@@ -468,3 +468,57 @@ html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !imp
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ================= Forms inside the chat (visit details) ================= */
+.intake { margin-top: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); padding: 16px 18px 14px; box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.35); max-width: 560px; }
+.f-head { font-weight: 700; font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.f-head::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+.f-err { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.f-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.f-field { grid-column: 1 / -1; display: grid; gap: 4px; min-width: 0; }
+.f-field.half { grid-column: span 1; }
+.f-field label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.f-opt { font-weight: 500; color: var(--faint); font-size: 12px; }
+.intake :is(input:not([type="checkbox"]), select, textarea) { width: 100%; min-width: 0; font: inherit; font-size: 14.5px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.intake textarea { resize: vertical; min-height: 60px; }
+.intake :is(input, select, textarea):focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.f-check { grid-column: 1 / -1; display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; cursor: pointer; padding: 4px 0; }
+.f-check input { margin-top: 3px; width: 17px; height: 17px; accent-color: var(--brand); flex: none; }
+.f-invalid :is(input, select, textarea) { border-color: var(--danger) !important; }
+.f-check.f-invalid span { color: var(--danger); }
+.f-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.f-foot button { border: 0; border-radius: 999px; padding: 10px 22px; font-weight: 600; font-size: 14px; background: var(--grad); color: #fff; box-shadow: 0 6px 16px -8px rgba(14, 116, 144, 0.8); }
+.f-note { font-size: 12px; color: var(--faint); }
+.intake.locked { opacity: 0.65; box-shadow: none; }
+.intake.locked .f-foot button { background: var(--surface-2); color: var(--muted); box-shadow: none; }
+@media (max-width: 600px) { .f-field.half { grid-column: 1 / -1; } .intake { padding: 14px; } }
+
+/* ================= Nurse cards (choose your nurse / directory) ================= */
+.nurse-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 14px; }
+.ncard { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 14px; transition: border-color 0.15s, transform 0.2s var(--ease), box-shadow 0.2s; }
+.ncard:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); transform: translateY(-1px); box-shadow: var(--shadow); }
+.ncard-top { display: flex; gap: 10px; align-items: center; margin-bottom: 2px; }
+.ncard-top b { display: block; font-size: 15px; }
+.ncard-top small { display: block; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.n-av { width: 42px; height: 42px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #fff; background: var(--grad); }
+.n-meta { font-size: 13px; color: var(--muted); }
+.n-badge { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--brand-soft); color: var(--brand); }
+.n-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.n-tags span { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.n-next { font-size: 12.5px; color: var(--muted); margin-top: auto; padding-top: 4px; }
+.n-next b { color: var(--ink); font-weight: 600; }
+.n-bio { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.n-pick { margin-top: 4px; border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--line)); background: var(--brand-soft); color: var(--brand); font-weight: 600; font-size: 13.5px; border-radius: 10px; padding: 8px 10px; transition: background 0.15s, color 0.15s; }
+.n-pick:hover:not(:disabled) { background: var(--brand); color: var(--bg); }
+.nurse-cards.locked { opacity: 0.6; }
+.nurse-cards.locked .ncard:hover { transform: none; box-shadow: none; }
+
+/* Nurse directory */
+.nurses-card { width: min(860px, 100%); }
+.nurses-card h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.02em; }
+.dir-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0 14px; }
+.dir-filters select { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.dir-video { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); cursor: pointer; }
+.dir-video input { accent-color: var(--brand); }
+.dir-grid { margin-top: 0; }
+.dir-empty { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 24px; }

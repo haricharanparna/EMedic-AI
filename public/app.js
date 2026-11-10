@@ -156,6 +156,7 @@ function initials(name) {
 function renderMessage(m, { animate = true } = {}) {
   if (m.from === 'user' && pendingEcho > 0) { pendingEcho--; return; }
   clearChips();
+  lockOld();
   const row = document.createElement('div');
   row.className = `row ${m.from === 'agent' ? 'bot' : m.from}${animate ? '' : ' static'}${m.emergency ? ' emergency' : ''}`;
 
@@ -180,13 +181,20 @@ function renderMessage(m, { animate = true } = {}) {
       body += `<div class="sources">${m.sources.map((s, i) => `<a href="/library/${CP.esc(s.doc || slug(s.title))}#${slug(s.heading)}" target="_blank" rel="noopener">📄 ${m.numbered ? `[${i + 1}] ` : ''}${CP.esc(s.heading)}</a>`).join('')}</div>`;
     }
     if (m.summary) body += CP.summaryHtml(m.summary);
+    if (m.nurses?.length) body += nurseCardsHtml(m.nurses);
+    if (m.form) body += formHtml(m.form, m.id);
     if (m.from === 'bot') body += `<div class="msg-actions"><button type="button" class="copy" title="Copy">${COPY_ICON}</button></div>`;
     row.innerHTML = `${av}<div class="content">${body}</div>`;
     row.querySelector('.copy')?.addEventListener('click', (e) => copyText(m.text, e.currentTarget));
-    if (m.options?.length) {
+    row.querySelectorAll('[data-pick]').forEach((b) => { b.onclick = () => send(b.dataset.pick); });
+    const form = row.querySelector('form.intake');
+    if (form) wireForm(form);
+    // With nurse cards, the names are buttons on the cards; only extra choices stay as chips.
+    const options = (m.options || []).filter((o) => !m.nurses?.some((n) => n.name === o));
+    if (options.length) {
       const chips = document.createElement('div');
       chips.className = 'chips';
-      for (const o of m.options) {
+      for (const o of options) {
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = o;
@@ -197,6 +205,97 @@ function renderMessage(m, { animate = true } = {}) {
     }
   }
   log.appendChild(row);
+}
+
+// ---------------- Forms and nurse cards inside the chat ----------------
+// Only the newest form / set of cards can be used; older ones are locked once the chat moves on.
+function lockOld() {
+  log.querySelectorAll('form.intake:not(.locked)').forEach((f) => {
+    f.classList.add('locked');
+    f.querySelectorAll('input, select, textarea, button').forEach((el) => { el.disabled = true; });
+    const btn = f.querySelector('button[type="submit"]');
+    if (btn) btn.textContent = 'Sent ✓';
+  });
+  log.querySelectorAll('.nurse-cards:not(.locked)').forEach((c) => {
+    c.classList.add('locked');
+    c.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  });
+}
+
+function nurseCardsHtml(list) {
+  const e = CP.esc;
+  return `<div class="nurse-cards">${list.map((n) => `
+    <div class="ncard">
+      <div class="ncard-top"><span class="n-av">${e(n.initials)}</span><div><b>${e(n.name)}</b><small>${e(n.title)}</small></div></div>
+      <div class="n-meta">${e(n.location)}${n.video ? ' · Video visits' : ''}</div>
+      <div class="n-meta">Speaks ${e(n.languages.join(', '))}${n.speaksYourLanguage ? ' <span class="n-badge">Your language</span>' : ''}</div>
+      <div class="n-tags">${n.specialties.map((t) => `<span>${e(t)}</span>`).join('')}</div>
+      ${n.next ? `<div class="n-next">Next opening: <b>${e(n.next)}</b></div>` : ''}
+      <button type="button" class="n-pick" data-pick="${e(n.name)}">Choose ${e(n.name.split(' ')[0])}</button>
+    </div>`).join('')}</div>`;
+}
+
+function formHtml(f, mid) {
+  const e = CP.esc;
+  const today = new Date().toISOString().slice(0, 10);
+  const field = (x) => {
+    const id = `f${mid}-${x.name}`;
+    const show = x.showIf ? ` data-show-field="${e(x.showIf.field)}" data-show-not="${e(x.showIf.not)}"` : '';
+    if (x.type === 'checkbox') {
+      return `<label class="f-check"${show}><input type="checkbox" name="${e(x.name)}"${x.value ? ' checked' : ''}${x.required ? ' required' : ''}><span>${e(x.label)}</span></label>`;
+    }
+    const common = `id="${id}" name="${e(x.name)}"${x.required ? ' required' : ''}${x.placeholder ? ` placeholder="${e(x.placeholder)}"` : ''}${x.autocomplete ? ` autocomplete="${e(x.autocomplete)}"` : ''}`;
+    let input;
+    if (x.type === 'select') {
+      const opts = x.options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+      input = `<select ${common}>${opts.length > 1 ? '<option value="">Choose…</option>' : ''}${opts.map((o) => `<option value="${e(o.value)}"${o.value === x.value ? ' selected' : ''}>${e(o.label)}</option>`).join('')}</select>`;
+    } else if (x.type === 'textarea') {
+      input = `<textarea ${common} rows="2" maxlength="300">${e(x.value || '')}</textarea>`;
+    } else {
+      input = `<input ${common} type="${e(x.type)}" value="${e(x.value || '')}"${x.type === 'date' ? ` max="${today}"` : ''} maxlength="120">`;
+    }
+    return `<div class="f-field${x.half ? ' half' : ''}"${show}><label for="${id}">${e(x.label)}${x.required ? '' : ' <span class="f-opt">optional</span>'}</label>${input}</div>`;
+  };
+  return `<form class="intake" novalidate>
+    <div class="f-head">${e(f.title || 'Details')}</div>
+    ${f.error ? `<div class="f-err" role="alert">${e(f.error)}</div>` : ''}
+    <div class="f-grid">${f.fields.map(field).join('')}</div>
+    <div class="f-foot"><button type="submit">${e(f.submit || 'Continue')}</button>${f.note ? `<span class="f-note">${e(f.note)}</span>` : ''}</div>
+  </form>`;
+}
+
+function wireForm(form) {
+  // Show/hide fields that depend on another (e.g. member ID only with insurance).
+  const sync = () => form.querySelectorAll('[data-show-field]').forEach((el) => {
+    const ctl = form.elements[el.dataset.showField];
+    el.hidden = Boolean(ctl) && ctl.value === el.dataset.showNot;
+  });
+  form.addEventListener('change', sync);
+  sync();
+  // Clear a field's red outline as soon as it's fixed.
+  const clearMark = (ev) => ev.target.closest('.f-invalid')?.classList.remove('f-invalid');
+  form.addEventListener('input', clearMark);
+  form.addEventListener('change', clearMark);
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    if (form.classList.contains('locked')) return;
+    // Quick check for empty required fields; the server checks everything else.
+    const missing = [...form.querySelectorAll('[required]')].filter((el) => !el.closest('[hidden]') && (el.type === 'checkbox' ? !el.checked : !el.value.trim()));
+    form.querySelectorAll('.f-invalid').forEach((el) => el.classList.remove('f-invalid'));
+    if (missing.length) {
+      missing.forEach((el) => (el.closest('.f-field, .f-check') || el).classList.add('f-invalid'));
+      missing[0].focus();
+      return;
+    }
+    const values = {};
+    for (const el of form.elements) {
+      if (!el.name || el.closest('[hidden]')) continue;
+      values[el.name] = el.type === 'checkbox' ? el.checked : el.value.trim();
+    }
+    const loc = form.elements.location;
+    const where = loc && loc.selectedIndex >= 0 ? loc.options[loc.selectedIndex].text.split(' · ')[0] : '';
+    send(`📋 Visit details sent: ${[values.fullName, values.insurance, where].filter(Boolean).join(' · ')}`, { form: values });
+  });
 }
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -264,7 +363,7 @@ function showThinking() {
 }
 
 // ---------------- Sending ----------------
-async function send(text) {
+async function send(text, extra = {}) {
   text = String(text || '').trim();
   if (!text || busy) return;
   busy = true;
@@ -273,6 +372,7 @@ async function send(text) {
   if (isEmpty()) { setEmpty(false); renderAll(); }
   clearChips();
   pendingEcho++;
+  lockOld();
   const row = document.createElement('div');
   row.className = 'row user';
   row.innerHTML = `<div class="bubble">${CP.esc(text)}</div>`;
@@ -280,7 +380,7 @@ async function send(text) {
   rememberChat(text);
   showThinking();
   try {
-    apply(await CP.api('/api/chat', { sessionId: sid, message: text, since: seen, name: myName || undefined, email: myEmail }));
+    apply(await CP.api('/api/chat', { sessionId: sid, message: text, since: seen, name: myName || undefined, email: myEmail, ...extra }));
   } catch {
     $('thinking')?.remove();
     const err = document.createElement('div');
@@ -525,3 +625,49 @@ async function boot() {
 }
 
 boot();
+
+// ---------------- Nurse directory ("Meet our nurses") ----------------
+let dirLoaded = false;
+async function loadDirectory() {
+  const q = new URLSearchParams();
+  if ($('dirLocation').value) q.set('location', $('dirLocation').value);
+  if ($('dirLanguage').value) q.set('language', $('dirLanguage').value);
+  if ($('dirVideo').checked) q.set('video', '1');
+  let data;
+  try { data = await (await fetch(`/api/nurses?${q}`)).json(); } catch { $('dirGrid').innerHTML = '<div class="dir-empty">Could not load the care team. Try again in a moment.</div>'; return; }
+  if (!dirLoaded) {
+    dirLoaded = true;
+    $('dirLocation').insertAdjacentHTML('beforeend', data.locations.map((l) => `<option value="${CP.esc(l.id)}">${CP.esc(l.name)}</option>`).join(''));
+    $('dirLanguage').insertAdjacentHTML('beforeend', data.languages.map((l) => `<option>${CP.esc(l)}</option>`).join(''));
+  }
+  const e = CP.esc;
+  $('dirGrid').innerHTML = data.nurses.length ? data.nurses.map((n) => `
+    <div class="ncard">
+      <div class="ncard-top"><span class="n-av">${e(n.initials)}</span><div><b>${e(n.name)}</b><small>${e(n.title)}</small></div></div>
+      <div class="n-bio">${e(n.bio)}</div>
+      <div class="n-meta">${e(n.location)} · ${e(n.address)}${n.video ? ' · Video visits' : ''}</div>
+      <div class="n-meta">Speaks ${e(n.languages.join(', '))}</div>
+      <div class="n-tags">${n.specialties.map((t) => `<span>${e(t)}</span>`).join('')}</div>
+      <div class="n-next">${n.next ? `Next opening: <b>${e(n.next)}</b>` : 'No open times right now'}</div>
+      <button type="button" class="n-pick" data-book="${e(n.name)}"${n.next ? '' : ' disabled'}>Book with ${e(n.name.split(' ')[0])}</button>
+    </div>`).join('') : '<div class="dir-empty">No nurses match those filters.</div>';
+  $('dirGrid').querySelectorAll('[data-book]').forEach((b) => {
+    b.onclick = () => { closeDirectory(); send(`Book with ${b.dataset.book}`); };
+  });
+}
+function openDirectory() {
+  lastFocus = document.activeElement;
+  $('nursesModal').hidden = false;
+  closeSide();
+  loadDirectory();
+  $('nursesClose').focus();
+}
+function closeDirectory() {
+  $('nursesModal').hidden = true;
+  lastFocus?.focus?.();
+}
+$('nursesBtn').onclick = openDirectory;
+$('nursesClose').onclick = closeDirectory;
+$('nursesModal').addEventListener('click', (e) => { if (e.target.id === 'nursesModal') closeDirectory(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('nursesModal').hidden) closeDirectory(); });
+['dirLocation', 'dirLanguage', 'dirVideo'].forEach((id) => $(id).addEventListener('change', loadDirectory));

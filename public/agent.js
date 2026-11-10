@@ -163,6 +163,8 @@ async function loadSchedule() {
   let data;
   try { data = await staffApi('/api/agent/slots'); } catch { return; }
   standardTimes = data.standardTimes || [];
+  const pick = document.getElementById('slotNurse');
+  if (!pick.options.length) pick.innerHTML = data.nurses.map((n) => `<option value="${CP.esc(n.id)}">${CP.esc(n.name)} · ${CP.esc(n.title.split(',')[0])}</option>`).join('');
   document.getElementById('tzNote').textContent = `Times are ${data.timezone.replace(/_/g, ' ')} time.`;
   document.getElementById('addDay').title = `Opens ${standardTimes.map(hm).join(', ')} on the chosen date`;
   if (!slotDate.value) {
@@ -185,7 +187,7 @@ async function loadSchedule() {
     const b = s.booking;
     html += `<div class="slot ${b ? 'booked' : ''}">
       <span class="t">${CP.esc(timeLabel(s.label))}</span>
-      <span class="who">${b ? `Booked · ${CP.esc(b.ref)} · ${CP.esc(b.format)}` : 'Open'}</span>
+      <span class="who">${CP.esc(s.nurseName || 'Any nurse')} · ${b ? `Booked ${CP.esc(b.ref)}` : 'Open'}</span>
       ${b ? '' : `<button type="button" class="rm" data-start="${CP.esc(s.start)}" aria-label="Remove ${CP.esc(s.label)}" title="Remove this time">×</button>`}
     </div>`;
   }
@@ -206,7 +208,7 @@ async function addSlots(starts) {
   const res = await fetch('/api/agent/slots', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Staff-Passcode': passcode },
-    body: JSON.stringify(starts.length === 1 ? { start: starts[0], name: agentName() } : { starts, name: agentName() }),
+    body: JSON.stringify({ ...(starts.length === 1 ? { start: starts[0] } : { starts }), name: agentName(), nurseId: document.getElementById('slotNurse').value }),
   });
   if (res.status === 401) return showLogin();
   const r = await res.json();
@@ -231,7 +233,13 @@ const REQ_ICON = { refill: '💊', callback: '📞', appointment: '📅' };
 function requestLines(r) {
   if (r.type === 'refill') return [`${r.medication} → ${r.pharmacy}`, `Refills left: ${r.refillsRemaining} · DOB ${r.dateOfBirth}`];
   if (r.type === 'callback') return [`Call ${r.phone} · ${r.bestTime}`, `Reason: ${r.reason}`];
-  return [`${r.visitType} · ${r.format}`, `${r.time} · ${r.reason}`];
+  return [
+    `${r.visitType} · ${r.format}${r.nurseName ? ` · with ${r.nurseName}` : ''}`,
+    `${r.time}${r.location ? ` · ${r.location}` : ''}`,
+    ...(r.patientName ? [`${r.patientName}${r.dateOfBirth ? ` · DOB ${r.dateOfBirth}` : ''}${r.phone ? ` · ${r.phone}` : ''}`] : []),
+    ...(r.insurance ? [`Insurance: ${r.insurance}${r.memberId ? ` (${r.memberId})` : ''}${r.language && r.language !== 'English' ? ` · Speaks ${r.language}` : ''}`] : []),
+    `Reason: ${r.reason}`,
+  ];
 }
 
 async function loadRequests() {

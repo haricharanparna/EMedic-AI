@@ -24,6 +24,24 @@ server.listen(0, async () => {
   };
   // New session that has already answered the pre-chat question.
   const fresh = async (sid, who = 'Myself') => { await chat(sid, who); return sid; };
+  const chatWith = async (sid, message, extra) => {
+    const { messages } = await post('/api/chat', { sessionId: sid, message, ...extra });
+    return messages.slice(messages.findLastIndex((m) => m.from === 'user') + 1);
+  };
+  const VISIT_FORM = { fullName: 'Pat Example', dob: '1985-04-12', phone: '(555) 222-3333', insurance: 'Aetna', memberId: 'A123', language: 'English', reason: 'sore throat', consent: true };
+  // Book through the chat: visit type, format, the visit-details form, a nurse, the first time, confirm.
+  const bookChat = async (sid, { visit = 'Sick visit', format = 'Video visit', form = {}, nurse, extra = {} } = {}) => {
+    await chatWith(sid, 'Book an appointment', extra);
+    await chatWith(sid, visit, extra);
+    const [ask] = await chatWith(sid, format, extra);
+    assert.ok(ask.form, 'expected the visit-details form');
+    const values = { ...VISIT_FORM, ...(format === 'In person' ? { location: 'main' } : {}), ...form };
+    let [step] = await chatWith(sid, 'Sent my visit details', { ...extra, form: values });
+    if (step.nurses) [step] = await chatWith(sid, nurse || step.options.at(-1), extra);
+    const [confirm] = await chatWith(sid, step.options[0], extra);
+    assert.match(confirm.text, /Here's your appointment/);
+    return chatWith(sid, 'Confirm booking', extra);
+  };
   let failures = 0;
   const check = async (name, fn) => {
     try { await fn(); console.log('PASS', name); } catch (e) { failures++; console.log('FAIL', name, '-', e.message); }
@@ -114,13 +132,7 @@ server.listen(0, async () => {
 
   await check('appointment booking', async () => {
     const sid = await fresh('test-appt');
-    await chat(sid, 'Book an appointment');
-    await chat(sid, 'Sick visit');
-    const [slots] = await chat(sid, 'Video visit');
-    assert.ok(slots.options.length >= 3);
-    await chat(sid, slots.options[0]);
-    await chat(sid, 'ear pain');
-    const [m] = await chat(sid, 'Confirm booking');
+    const [m] = await bookChat(sid, { form: { reason: 'ear pain' } });
     assert.match(m.text, /APT-\d{6}/);
   });
 
@@ -206,7 +218,8 @@ server.listen(0, async () => {
     await fresh('test-no-slots');
     await chat('test-no-slots', 'Book an appointment');
     await chat('test-no-slots', 'Sick visit');
-    assert.match((await chat('test-no-slots', 'In person'))[0].text, /aren't any open appointment times/);
+    await chat('test-no-slots', 'In person');
+    assert.match((await chatWith('test-no-slots', 'Sent', { form: { ...VISIT_FORM, location: 'main' } }))[0].text, /aren't any open appointment times/);
     const none = await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' }) });
     assert.equal(none.status, 409);
     // Put a normal week back for the tests that follow.
@@ -257,42 +270,104 @@ server.listen(0, async () => {
 
   await check('reschedule and cancel by confirmation number', async () => {
     const sid = await fresh('test-manage');
-    await chat(sid, 'Book an appointment');
-    await chat(sid, 'Follow-up visit');
-    const [slots] = await chat(sid, 'In person');
-    await chat(sid, slots.options[0]);
-    await chat(sid, 'skip');
-    const apt = (await chat(sid, 'Confirm booking'))[0].text.match(/APT-\d{6}/)[0];
+    const [booked] = await bookChat(sid, { visit: 'Follow-up visit', format: 'In person' });
+    const apt = booked.text.match(/APT-\d{6}/)[0];
+    const bookedTime = booked.text.match(/You're booked!\*\* (.+?) with /)[1];
     const [found] = await chat(sid, `please reschedule ${apt}`);
     assert.match(found.text, /I found it/);
     const [newSlots] = await chat(sid, 'Reschedule');
-    assert.ok(!newSlots.options.includes(slots.options[0]), 'booked slot should not be offered again');
+    assert.ok(!newSlots.options.includes(bookedTime), 'booked slot should not be offered again');
     assert.match((await chat(sid, newSlots.options[0]))[0].text, /moved from/);
     await chat(sid, `cancel ${apt}`);
     await chat(sid, 'Cancel it');
     assert.match((await chat(sid, 'Yes, cancel it'))[0].text, /is cancelled/);
   });
 
-  await check('booking confirmation: email, phone, skip, and bad input', async () => {
-    const book = async (sid) => {
-      await fresh(sid);
-      await chat(sid, 'Book an appointment');
-      await chat(sid, 'Sick visit');
-      const [slots] = await chat(sid, 'Video visit');
-      await chat(sid, slots.options[0]);
-      await chat(sid, 'sore throat');
-      const msgs = await chat(sid, 'Confirm booking');
-      // Video visits get a clickable join link in the chat.
-      assert.match(msgs[0].text, /\[Join your video visit\]\(https:\/\/meet\.jit\.si\/EMedic-APT-\d{6}-[0-9a-f]{8}\)/);
-      return { apt: msgs[0].text.match(/APT-\d{6}/)[0], ask: msgs[0] };
-    };
-    // Bad input, then email with sending stubbed out (no real email leaves the test).
-    const { apt, ask } = await book('test-email');
-    assert.match(ask.text, /Want a confirmation\?/);
-    assert.deepEqual(ask.options, ['No thanks']);
-    assert.match((await chat('test-email', 'not sure'))[0].text, /what can i help|anything|library|rephrase/i, 'non-answers move on');
-    const { apt: apt2 } = await book('test-email2');
-    assert.match((await chat('test-email2', 'david@gmail'))[0].text, /doesn't look like an email/);
+  await check('booking: visit-details form, choosing a nurse, and what gets saved', async () => {
+    const sid = await fresh('test-intake');
+    await chat(sid, 'Book an appointment');
+    await chat(sid, 'Sick visit');
+    const [ask] = await chat(sid, 'In person');
+    const names = ask.form.fields.map((f) => f.name);
+    for (const f of ['fullName', 'dob', 'phone', 'email', 'location', 'insurance', 'memberId', 'language', 'reason', 'consent']) assert.ok(names.includes(f), `form has ${f}`);
+    // Typing instead of using the form gets a nudge and the form again.
+    const [nudge] = await chat(sid, 'hello?');
+    assert.match(nudge.text, /fill in the form/);
+    assert.ok(nudge.form);
+    // Bad fields come back with an error and the values kept.
+    const bad = { ...VISIT_FORM, phone: '555', location: 'northgate', language: 'Spanish' };
+    const [err] = await chatWith(sid, 'Sent my visit details', { form: bad });
+    assert.match(err.form.error, /10-digit phone/);
+    assert.equal(err.form.fields.find((f) => f.name === 'fullName').value, 'Pat Example');
+    assert.match((await chatWith(sid, 'Sent', { form: { ...bad, phone: '(555) 222-3333', consent: false } }))[0].form.error, /tick the box/);
+    // Valid: nurses who work at Northgate and do sick visits; Spanish speakers first.
+    const [pick] = await chatWith(sid, 'Sent my visit details', { form: { ...bad, phone: '(555) 222-3333' } });
+    assert.ok(pick.nurses.length >= 1);
+    assert.ok(pick.nurses.every((n) => n.location === 'Northgate Clinic'));
+    assert.equal(pick.nurses[0].name, 'Maria Gonzalez');
+    assert.equal(pick.nurses[0].speaksYourLanguage, true);
+    assert.equal(pick.options.at(-1), 'No preference (first available)');
+    // Choosing Maria shows only her times; the confirmation lists everything.
+    const [times] = await chat(sid, 'Maria Gonzalez');
+    assert.match(times.text, /open times with \*\*Maria Gonzalez\*\*/);
+    const [confirm] = await chat(sid, times.options[0]);
+    assert.match(confirm.text, /With:\*\* Maria Gonzalez, FNP-C/);
+    assert.match(confirm.text, /Where:\*\* Northgate Clinic, 45 Northgate Blvd/);
+    assert.match(confirm.text, /Insurance:\*\* Aetna \(member ID A123\)/);
+    const [done] = await chat(sid, 'Confirm booking');
+    assert.match(done.text, /with Maria Gonzalez, FNP-C/);
+    assert.match(done.text, /text a reminder to \*\*\(555\) 222-3333\*\*/);
+    const ref = done.text.match(/APT-\d{6}/)[0];
+    const rec = (await get('/api/agent/requests')).find((r) => r.ref === ref);
+    assert.equal(rec.nurseId, 'maria-gonzalez');
+    assert.equal(rec.location, 'Northgate Clinic');
+    assert.equal(rec.patientName, 'Pat Example');
+    assert.equal(rec.dateOfBirth, '04/12/1985');
+    assert.equal(rec.insurance, 'Aetna');
+    assert.equal(rec.memberId, 'A123');
+    assert.equal(rec.language, 'Spanish');
+    // Self-pay gets the price note and drops the member ID.
+    const sid2 = await fresh('test-selfpay');
+    await chat(sid2, 'Book an appointment');
+    await chat(sid2, 'Sick visit');
+    await chat(sid2, 'Video visit');
+    const [pick2] = await chatWith(sid2, 'Sent', { form: { ...VISIT_FORM, insurance: 'Self-pay (no insurance)' } });
+    assert.ok(pick2.nurses.every((n) => n.video), 'video visits only show nurses who do video');
+    const [t2] = await chat(sid2, 'No preference (first available)');
+    const [c2] = await chat(sid2, t2.options[0]);
+    assert.match(c2.text, /Self-pay:\*\* video visits are \*\*\$49\*\*/);
+    assert.doesNotMatch(c2.text, /member ID/);
+  });
+
+  await check('nurse directory and "Book with" a nurse', async () => {
+    const all = await (await fetch(`${base}/api/nurses`)).json();
+    assert.equal(all.nurses.length, 8);
+    assert.equal(all.locations.length, 3);
+    assert.ok(all.nurses.every((n) => n.name && n.title && n.location && n.languages.length && 'next' in n));
+    const spanish = await (await fetch(`${base}/api/nurses?language=Spanish&video=1`)).json();
+    assert.deepEqual(spanish.nurses.map((n) => n.name).sort(), ['Carlos Rivera', 'Maria Gonzalez']);
+    // "Book with ..." from the directory picks that nurse and skips the choose-a-nurse step.
+    const sid = await fresh('test-book-with');
+    const [type] = await chat(sid, 'Book with Daniel Okafor');
+    assert.match(type.text, /book you with \*\*Daniel Okafor\*\*/);
+    assert.deepEqual(type.options, ['Sick visit', 'Vaccine only'], "only Daniel's visit types");
+    const [mode] = await chat(sid, 'Vaccine only');
+    assert.deepEqual(mode.options, ['In person'], 'Daniel does not do video');
+    const [form] = await chat(sid, 'In person');
+    const loc = form.form.fields.find((f) => f.name === 'location');
+    assert.deepEqual(loc.options.map((o) => o.value), ['main'], "only Daniel's clinic");
+    const [times] = await chatWith(sid, 'Sent', { form: { ...VISIT_FORM, location: 'main', reason: 'flu shot' } });
+    assert.match(times.text, /open times with \*\*Daniel Okafor\*\*/);
+    // Actions API: nurse list and nurse-specific times.
+    const apiKey = { 'X-API-Key': 'test-actions-key' };
+    const list = await (await fetch(`${base}/api/actions/nurses?location=northgate`, { headers: apiKey })).json();
+    assert.ok(list.nurses.every((n) => n.location === 'Northgate Clinic'));
+    assert.match(list.message, /Maria Gonzalez/);
+    const slots = await (await fetch(`${base}/api/actions/slots?nurse=Aisha`, { headers: apiKey })).json();
+    assert.match(slots.message, /with Aisha Rahman/);
+  });
+
+  await check('booking confirmation email: from the form, from Settings, and when not set up', async () => {
     const realFetch = global.fetch;
     const sent = [];
     process.env.EMAIL_API_KEY = 'test-key';
@@ -301,72 +376,47 @@ server.listen(0, async () => {
       if (String(url).includes('api.brevo.com')) { sent.push(JSON.parse(opts.body)); return new Response('{}', { status: 201 }); }
       return realFetch(url, opts);
     };
+    let fromForm;
+    let fromSettings;
     try {
-      const msgs = await chat('test-email2', 'David@Example.com');
-      assert.match(msgs[0].text, /Sending your confirmation/);
-      assert.match(msgs[1].text, /Confirmation sent to \*\*David@Example.com\*\*/);
+      await fresh('test-email-form');
+      fromForm = await bookChat('test-email-form', { form: { email: 'David@Example.com' } });
+      // An email saved in Settings arrives with every message and pre-fills the form.
+      const extra = { email: 'saved@example.com' };
+      await chatWith('test-email-settings', 'Myself', extra);
+      await chatWith('test-email-settings', 'Book an appointment', extra);
+      await chatWith('test-email-settings', 'Sick visit', extra);
+      const [ask] = await chatWith('test-email-settings', 'Video visit', extra);
+      assert.equal(ask.form.fields.find((f) => f.name === 'email').value, 'saved@example.com');
+      await fresh('test-email-settings2');
+      fromSettings = await bookChat('test-email-settings2', { extra });
     } finally {
       global.fetch = realFetch;
       delete process.env.EMAIL_API_KEY;
       delete process.env.EMAIL_FROM;
     }
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0].to[0].email, 'David@Example.com');
-    assert.equal(sent[0].sender.email, 'clinic@example.com');
-    assert.match(sent[0].subject, /appointment is confirmed/);
-    assert.match(sent[0].htmlContent, new RegExp(apt2));
-    assert.match(sent[0].htmlContent, /Join video visit/);
-    assert.match(sent[0].htmlContent, /https:\/\/meet\.jit\.si\/EMedic-APT-/);
-    assert.match(sent[0].textContent, /Join your video visit: https:\/\/meet\.jit\.si\//);
+    // Video visits get a clickable join link in the chat.
+    assert.match(fromForm[0].text, /\[Join your video visit\]\(https:\/\/meet\.jit\.si\/EMedic-APT-\d{6}-[0-9a-f]{8}\)/);
+    assert.match(fromForm[0].text, /Sending your confirmation to \*\*David@Example.com\*\*/);
+    assert.match(fromForm[1].text, /Confirmation sent to \*\*David@Example.com\*\*/);
+    assert.match(fromSettings[1].text, /Confirmation sent to \*\*saved@example.com\*\*/);
+    assert.equal(sent.length, 2);
+    const mail = sent[0];
+    assert.equal(mail.to[0].email, 'David@Example.com');
+    assert.equal(mail.sender.email, 'clinic@example.com');
+    assert.match(mail.subject, /appointment is confirmed/);
+    assert.match(mail.htmlContent, new RegExp(fromForm[0].text.match(/APT-\d{6}/)[0]));
+    assert.match(mail.htmlContent, /Join video visit/);
+    assert.match(mail.textContent, /Join your video visit: https:\/\/meet\.jit\.si\//);
+    assert.match(mail.textContent, /With: /);
     // Not configured: says so honestly, booking still stands.
-    await book('test-email3');
-    assert.match((await chat('test-email3', 'pat@example.com'))[1].text, /email isn't set up/);
-    // Phone and skip.
-    await book('test-phone');
-    assert.match((await chat('test-phone', '(555) 123-4567'))[0].text, /text a reminder to \*\*\(555\) 123-4567\*\*/);
-    await book('test-skip');
-    assert.match((await chat('test-skip', 'No thanks'))[0].text, /Your confirmation number is \*\*APT-\d{6}\*\*/);
-    assert.ok(apt);
-  });
-
-  await check('email saved in Settings: booking emails it without asking', async () => {
-    // The chat page sends the saved email with every message.
-    const say = async (sid, message, email) => {
-      const { messages } = await post('/api/chat', { sessionId: sid, message, email });
-      return messages.slice(messages.findLastIndex((m) => m.from === 'user') + 1);
-    };
-    const book = async (sid, email) => {
-      await say(sid, 'Myself', email);
-      await say(sid, 'Book an appointment', email);
-      await say(sid, 'Follow-up visit', email);
-      const [slots] = await say(sid, 'In person', email);
-      await say(sid, slots.options[0], email);
-      await say(sid, 'skip', email);
-      return say(sid, 'Confirm booking', email);
-    };
-    const realFetch = global.fetch;
-    const sent = [];
-    process.env.EMAIL_API_KEY = 'test-key';
-    process.env.EMAIL_FROM = 'clinic@example.com';
-    global.fetch = async (url, opts) => {
-      if (String(url).includes('api.brevo.com')) { sent.push(JSON.parse(opts.body)); return new Response('{}', { status: 201 }); }
-      return realFetch(url, opts);
-    };
-    let msgs;
-    try { msgs = await book('test-saved-email', 'saved@example.com'); } finally {
-      global.fetch = realFetch;
-      delete process.env.EMAIL_API_KEY;
-      delete process.env.EMAIL_FROM;
-    }
-    assert.match(msgs[0].text, /You're booked!/);
-    assert.match(msgs[0].text, /Sending your confirmation to \*\*saved@example.com\*\* \(from your settings\)/);
-    assert.ok(!msgs.some((m) => /Want a confirmation\?/.test(m.text)), 'no need to ask');
-    assert.match(msgs[1].text, /Confirmation sent to \*\*saved@example.com\*\*/);
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0].to[0].email, 'saved@example.com');
-    // A malformed saved email is ignored, so the bot asks as usual.
-    const asked = await book('test-bad-saved-email', 'not-an-email');
-    assert.match(asked[0].text, /Want a confirmation\?/);
+    await fresh('test-email-off');
+    const off = await bookChat('test-email-off', { form: { email: 'pat@example.com' } });
+    assert.match(off[1].text, /email isn't set up/);
+    // No email: a reminder text to the phone from the form instead.
+    await fresh('test-no-email');
+    const noEmail = await bookChat('test-no-email');
+    assert.match(noEmail[0].text, /text a reminder to \*\*\(555\) 222-3333\*\*/);
   });
 
   await check('actions API: booking with an email', async () => {
