@@ -181,9 +181,13 @@ Free-text answers are fine. The API understands answers like "6 weeks", "pretty 
 | 2 | **Question (Select)** | `In person or video?` `In person` · `Video visit`, then Set Variable `format` |
 | 3 | **Question (Select)** | `When works best?` `Earliest available` · `Morning` · `Afternoon`, then Set Variable `preference` |
 | 4 | **Question (Text)** | `In a few words, what's the visit for?` → Variable `reason` |
-| 5 | **API** | **POST** `APP/api/actions/appointments?soft=1` · Body `{"visitType":"{{visitType}}","format":"{{format}}","preference":"{{preference}}","reason":"{{reason}}"}` · Map `ok` → `bookOk`, `message` → `bookMessage`, `ref` → `aptRef` |
-| 6 | **Statement** *(Success)* | `{{bookMessage}}` (for example: *"You're booked for Tue, Nov 10, 1:00 PM … Confirmation APT-482913 …"*) |
-| 7 | **Statement** *(Error/Timeout)* | `Booking is unavailable right now. Call (555) 010-2273 or try again in a moment.` |
+| 5 | **Question (Select)** | `Want a confirmation email?` `Yes, email me` · `No thanks`. On **No thanks**, skip to node 7. |
+| 6 | **Email** | `What email should we send it to?` → Variable `email` |
+| 7 | **API** | **POST** `APP/api/actions/appointments?soft=1` · Body `{"visitType":"{{visitType}}","format":"{{format}}","preference":"{{preference}}","reason":"{{reason}}","email":"{{email}}"}` · Map `ok` → `bookOk`, `message` → `bookMessage`, `ref` → `aptRef` |
+| 8 | **Statement** *(Success)* | `{{bookMessage}}` (for example: *"You're booked for Tue, Nov 10, 1:00 PM … Confirmation APT-482913 … Confirmation sent to pat@example.com."*) |
+| 9 | **Statement** *(Error/Timeout)* | `Booking is unavailable right now. Call (555) 010-2273 or try again in a moment.` |
+
+> The confirmation email comes from your own address once `EMAIL_API_KEY` and `EMAIL_FROM` are set on Render (see "Confirmation emails" in the README). An empty `email` is ignored, so the **No thanks** path books without emailing. If email isn't set up, the booking still goes through and `bookMessage` says the email couldn't be sent.
 
 ### 7C. `Manage Appointment`: look up, cancel, reschedule → intent: *Booking, changing or canceling appointments* (or a cancel intent if one exists)
 

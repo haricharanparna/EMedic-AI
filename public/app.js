@@ -73,12 +73,69 @@ function rememberChat(text) {
   renderRecent();
 }
 
+const EDIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+const TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+
 function renderRecent() {
   const el = $('recent');
   const list = loadChats();
   if (!list.length) { el.innerHTML = '<div class="empty-note">Your chats will show up here.</div>'; return; }
-  el.innerHTML = list.map((c) => `<button data-id="${CP.esc(c.id)}" class="${c.id === sid ? 'active' : ''}" title="${CP.esc(c.title)}"><span>${CP.esc(c.title)}</span></button>`).join('');
-  el.querySelectorAll('button').forEach((b) => { b.onclick = () => { switchTo(b.dataset.id); closeSide(); }; });
+  el.innerHTML = list.map((c) => `
+    <div class="chat-item${c.id === sid ? ' active' : ''}" data-id="${CP.esc(c.id)}">
+      <button type="button" class="open" title="${CP.esc(c.title)}"><span>${CP.esc(c.title)}</span></button>
+      <div class="chat-acts">
+        <button type="button" class="rename" aria-label="Rename chat" title="Rename">${EDIT_ICON}</button>
+        <button type="button" class="delete" aria-label="Delete chat" title="Delete">${TRASH_ICON}</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('.chat-item').forEach((item) => {
+    const id = item.dataset.id;
+    item.querySelector('.open').onclick = () => { switchTo(id); closeSide(); };
+    item.querySelector('.rename').onclick = () => renameChat(item, id);
+    item.querySelector('.delete').onclick = () => confirmDelete(item, id);
+  });
+}
+
+// Rename in place: Enter saves, Escape cancels.
+function renameChat(item, id) {
+  const chat = loadChats().find((c) => c.id === id);
+  if (!chat) return;
+  const field = document.createElement('input');
+  field.className = 'chat-rename';
+  field.maxLength = 60;
+  field.value = chat.title;
+  item.replaceChildren(field);
+  field.focus();
+  field.select();
+  let finished = false;
+  const done = (save) => {
+    if (finished) return;
+    finished = true;
+    const title = field.value.trim();
+    if (save && title) {
+      const list = loadChats();
+      const c = list.find((x) => x.id === id);
+      if (c) { c.title = title.slice(0, 60); c.custom = true; saveChats(list); }
+    }
+    renderRecent();
+  };
+  field.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); done(true); }
+    if (e.key === 'Escape') done(false);
+  });
+  field.addEventListener('blur', () => done(true));
+}
+
+// Ask "Delete?" inline instead of a browser pop-up.
+function confirmDelete(item, id) {
+  const acts = item.querySelector('.chat-acts');
+  item.classList.add('confirming');
+  acts.innerHTML = '<span class="ask">Delete?</span><button type="button" class="yes">Yes</button><button type="button" class="no">No</button>';
+  acts.querySelector('.no').onclick = () => renderRecent();
+  acts.querySelector('.yes').onclick = () => {
+    saveChats(loadChats().filter((c) => c.id !== id));
+    if (id === sid) newChat(); else renderRecent();
+  };
 }
 
 // ---------------- Rendering ----------------

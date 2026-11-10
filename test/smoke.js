@@ -8,6 +8,8 @@ process.env.ACTIONS_API_KEY = 'test-actions-key';
 process.env.DATA_FILE = path.join(os.tmpdir(), `emedic-test-${Date.now()}.json`);
 const server = require('../server');
 delete process.env.AI_API_KEY; // test the offline path so results are deterministic
+delete process.env.EMAIL_API_KEY; // never send real email from tests
+delete process.env.EMAIL_FROM;
 
 server.listen(0, async () => {
   const base = `http://localhost:${server.address().port}`;
@@ -228,6 +230,68 @@ server.listen(0, async () => {
     await chat(sid, `cancel ${apt}`);
     await chat(sid, 'Cancel it');
     assert.match((await chat(sid, 'Yes, cancel it'))[0].text, /is cancelled/);
+  });
+
+  await check('booking confirmation: email, phone, skip, and bad input', async () => {
+    const book = async (sid) => {
+      await fresh(sid);
+      await chat(sid, 'Book an appointment');
+      await chat(sid, 'Sick visit');
+      const [slots] = await chat(sid, 'Video visit');
+      await chat(sid, slots.options[0]);
+      await chat(sid, 'sore throat');
+      const msgs = await chat(sid, 'Confirm booking');
+      return { apt: msgs[0].text.match(/APT-\d{6}/)[0], ask: msgs[0] };
+    };
+    // Bad input, then email with sending stubbed out (no real email leaves the test).
+    const { apt, ask } = await book('test-email');
+    assert.match(ask.text, /Want a confirmation\?/);
+    assert.deepEqual(ask.options, ['No thanks']);
+    assert.match((await chat('test-email', 'not sure'))[0].text, /what can i help|anything|library|rephrase/i, 'non-answers move on');
+    const { apt: apt2 } = await book('test-email2');
+    assert.match((await chat('test-email2', 'david@gmail'))[0].text, /doesn't look like an email/);
+    const realFetch = global.fetch;
+    const sent = [];
+    process.env.EMAIL_API_KEY = 'test-key';
+    process.env.EMAIL_FROM = 'clinic@example.com';
+    global.fetch = async (url, opts) => {
+      if (String(url).includes('api.brevo.com')) { sent.push(JSON.parse(opts.body)); return new Response('{}', { status: 201 }); }
+      return realFetch(url, opts);
+    };
+    try {
+      const msgs = await chat('test-email2', 'David@Example.com');
+      assert.match(msgs[0].text, /Sending your confirmation/);
+      assert.match(msgs[1].text, /Confirmation sent to \*\*David@Example.com\*\*/);
+    } finally {
+      global.fetch = realFetch;
+      delete process.env.EMAIL_API_KEY;
+      delete process.env.EMAIL_FROM;
+    }
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to[0].email, 'David@Example.com');
+    assert.equal(sent[0].sender.email, 'clinic@example.com');
+    assert.match(sent[0].subject, /appointment is confirmed/);
+    assert.match(sent[0].htmlContent, new RegExp(apt2));
+    // Not configured: says so honestly, booking still stands.
+    await book('test-email3');
+    assert.match((await chat('test-email3', 'pat@example.com'))[1].text, /email isn't set up/);
+    // Phone and skip.
+    await book('test-phone');
+    assert.match((await chat('test-phone', '(555) 123-4567'))[0].text, /text a reminder to \*\*\(555\) 123-4567\*\*/);
+    await book('test-skip');
+    assert.match((await chat('test-skip', 'No thanks'))[0].text, /Your confirmation number is \*\*APT-\d{6}\*\*/);
+    assert.ok(apt);
+  });
+
+  await check('actions API: booking with an email', async () => {
+    const apiKey = { 'Content-Type': 'application/json', 'X-API-Key': 'test-actions-key' };
+    const call = (body) => fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify(body) });
+    assert.equal((await call({ visitType: 'Sick visit', format: 'video', preference: 'earliest', email: 'nope' })).status, 400);
+    const ok = await (await call({ visitType: 'Sick visit', format: 'video', preference: 'earliest', email: 'pat@example.com' })).json();
+    assert.equal(ok.ok, true);
+    assert.equal(ok.emailSent, false);
+    assert.match(ok.message, /You're booked/);
+    assert.match(ok.message, /email isn't set up/);
   });
 
   await check('nurse approves refill and patient gets an update', async () => {

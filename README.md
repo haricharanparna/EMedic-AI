@@ -53,6 +53,22 @@ AI_API_KEY=your-key
 # optional: AI_API_URL=https://api.openai.com/v1/chat/completions
 ```
 
+### Optional: confirmation emails
+
+After a booking, EMedic AI asks for an email (or a phone number for a reminder text) and emails the confirmation **from your own address**. It uses [Brevo](https://www.brevo.com)'s free HTTP API (300 emails/day), because many free hosts, Render included, block outgoing SMTP.
+
+1. Sign up at Brevo, go to **Senders, Domains & Dedicated IPs → Senders**, add your email, and click the verification link it sends you.
+2. Create an API key under **SMTP & API → API Keys**.
+3. Add to `.env` (and to Render's Environment):
+
+```
+EMAIL_API_KEY=xkeysib-...
+EMAIL_FROM=you@gmail.com
+EMAIL_FROM_NAME=EMedic AI
+```
+
+Without these, bookings still work and the bot says honestly that the email couldn't be sent. Reminder texts are a demo: the number is saved with the booking, but no SMS is sent.
+
 ## Deploy (for the "working demo link")
 
 **Render (free):**
@@ -77,6 +93,7 @@ public/openapi.json  Actions API spec (for eGain API nodes or any REST client)
 scripts/             export-library.js: library → standalone HTML files for upload
 EGAIN-GUIDE.md       Step-by-step build of the eGain AI Agent entry
 lib/llm.js           Optional AI calls (grounded answers, general health info, summaries)
+lib/email.js         Optional booking confirmation emails (Brevo HTTP API)
 knowledge/*.md       The health library. Edit these to change what the bot knows
 public/              Patient chat (index.html, app.js) and Nurse Console (agent.html, agent.js)
 test/smoke.js        End-to-end tests

@@ -20,3 +20,9 @@ services:
         value: https://api.groq.com/openai/v1/chat/completions
       - key: AI_MODEL
         value: openai/gpt-oss-120b
+      - key: EMAIL_API_KEY # optional: Brevo API key for booking confirmation emails
+        sync: false
+      - key: EMAIL_FROM # the sender address you verified in Brevo (e.g. your Gmail)
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: EMedic AI

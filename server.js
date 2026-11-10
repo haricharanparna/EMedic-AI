@@ -9,6 +9,7 @@ try { process.loadEnvFile(path.join(__dirname, '.env')); } catch { /* no .env fi
 
 const bot = require('./lib/bot');
 const actions = require('./lib/actions');
+const email = require('./lib/email');
 const library = require('./lib/library');
 const { triageResult } = require('./lib/workflows');
 
@@ -159,7 +160,15 @@ async function route(req, res) {
         return { slots, message: `Next available times: ${slots.join('; ')}.` };
       });
     }
-    if (req.method === 'POST' && p === '/api/actions/appointments') return act(() => actions.bookAppointment(body));
+    if (req.method === 'POST' && p === '/api/actions/appointments') {
+      // Optional `email`: book, then send the confirmation email and say how it went.
+      return act(async () => {
+        const booked = actions.bookAppointment(body);
+        if (!booked.email) return booked;
+        const sent = await email.sendAppointmentConfirmation(booked, booked.email, body.name);
+        return { ...booked, emailSent: sent.ok, message: `${booked.message} ${sent.message.replace(/\*\*/g, '')}` };
+      });
+    }
     // References may arrive loosely typed ("apt 123456"); the actions normalize them.
     if ((m = p.match(/^\/api\/actions\/appointments\/([^/]+)$/)) && req.method === 'GET') return act(() => actions.getAppointment(ref(m[1])));
     if ((m = p.match(/^\/api\/actions\/appointments\/([^/]+)\/cancel$/)) && req.method === 'POST') return act(() => actions.cancelAppointment(ref(m[1])));
