@@ -1,0 +1,22 @@
+# Render blueprint: New → Blueprint → pick this repo. Render asks for the values marked sync: false.
+services:
+  - type: web
+    name: emedic-ai
+    runtime: node
+    plan: free
+    buildCommand: echo no build
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: STAFF_PASSCODE # nurse console passcode
+        sync: false
+      - key: ACTIONS_API_KEY # eGain API nodes send this as X-API-Key
+        generateValue: true
+      - key: AI_API_KEY # optional: Groq (or any OpenAI-compatible) key
+        sync: false
+      - key: AI_API_URL
+        value: https://api.groq.com/openai/v1/chat/completions
+      - key: AI_MODEL
+        value: openai/gpt-oss-120b
