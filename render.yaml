@@ -12,7 +12,7 @@ services:
         value: "22"
       - key: STAFF_PASSCODE # nurse console passcode
         sync: false
-      - key: ACTIONS_API_KEY # eGain API nodes send this as X-API-Key
+      - key: ACTIONS_API_KEY # external AI agents send this as X-API-Key
         generateValue: true
       - key: AI_API_KEY # optional: Groq (or any OpenAI-compatible) key
         sync: false

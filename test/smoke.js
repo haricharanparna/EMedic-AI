@@ -313,7 +313,7 @@ server.listen(0, async () => {
       const api = await (await fetch(`${base}/api/actions/providers?city=Herndon&type=pediatrics`, { headers: { 'X-API-Key': 'test-actions-key' } })).json();
       assert.match(api.message, /Jane Q\. Doe, MD \(Pediatrics\) at 100 Main St, Herndon, VA 20170/);
       assert.ok(!/555-01/.test(JSON.stringify(api)));
-      // eGain tool: one "where" answer and a plain-words type.
+      // Agent-platform tool: one "where" answer and a plain-words type.
       await fetch(`${base}/api/actions/providers?soft=1&type=kids%20doctor&where=Austin,%20TX`, { headers: { 'X-API-Key': 'test-actions-key' } });
       assert.match(asked.at(-1), /taxonomy_description=Pediatrics/);
       assert.match(asked.at(-1), /state=TX/);
@@ -608,7 +608,7 @@ server.listen(0, async () => {
     assert.match((await chat(sid, `status of ${rx}`))[0].text, /Approved/);
   });
 
-  // ---- Actions API (what an eGain AI Agent would call) ----
+  // ---- Actions API (what an external AI agent would call) ----
 
   const apiKey = { 'Content-Type': 'application/json', 'X-API-Key': 'test-actions-key' };
   const apiPost = (u, body) => fetch(base + u, { method: 'POST', headers: apiKey, body: JSON.stringify(body) });
@@ -650,7 +650,7 @@ server.listen(0, async () => {
     assert.match(cb.ref, /^CB-\d{6}$/);
   });
 
-  await check('actions API: eGain-friendly inputs (preference, soft errors, loose refs, ISO dates)', async () => {
+  await check('actions API: agent-friendly inputs (preference, soft errors, loose refs, ISO dates)', async () => {
     const booked = await (await apiPost('/api/actions/appointments', { visitType: 'Sick visit', format: 'video', preference: 'Afternoon' })).json();
     assert.ok(booked.ok);
     assert.match(booked.time, /PM$/);

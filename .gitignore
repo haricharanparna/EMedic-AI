@@ -5,3 +5,7 @@ node_modules/
 data/
 export/
 .claude/
+
+# Private notes (kept locally, not published)
+EGAIN-GUIDE.md
+PRIVATE-NOTES.md

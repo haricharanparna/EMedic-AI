@@ -1,4 +1,4 @@
-// Export the health library as standalone HTML files you can upload to eGain (or any AI agent builder).
+// Export the health library as standalone HTML files you can upload to any AI agent builder.
 // Run: node scripts/export-library.js   →   writes export/library/*.html
 const fs = require('node:fs');
 const path = require('node:path');

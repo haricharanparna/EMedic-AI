@@ -30,7 +30,7 @@ const TYPES = {
 const ID_RE = /^[\w-]{6,64}$/;
 // Nurse console passcode. Set STAFF_PASSCODE in .env (or your host's settings) to change it.
 const STAFF_PASSCODE = process.env.STAFF_PASSCODE || 'emedic-staff';
-// Key that external callers (like an eGain AI Agent action) send as the X-API-Key header.
+// Key that external callers (like another AI agent platform) send as the X-API-Key header.
 const ACTIONS_API_KEY = process.env.ACTIONS_API_KEY || 'emedic-actions-demo';
 
 function safeEqual(got, want) {
@@ -80,7 +80,7 @@ function serveStatic(res, urlPath) {
 }
 
 // Run an action and reply with its result, or with its friendly error.
-// soft = true answers errors with HTTP 200 + ok:false, so a no-code workflow (like eGain's API node)
+// soft = true answers errors with HTTP 200 + ok:false, so a no-code workflow (like an API node in an agent builder)
 // can branch on `ok` and still show the friendly `message`, instead of landing in a generic error path.
 // Nurses with their next open time, filtered by ?language=&visitType=.
 function nurseDirectory(q) {
@@ -170,7 +170,7 @@ async function route(req, res) {
     return send(res, 200, bot.messagesSince(s, url(req).searchParams.get('since')));
   }
 
-  // ---- Actions API: lets an external AI agent (e.g. eGain) take the same real actions over REST ----
+  // ---- Actions API: lets an external AI agent (e.g. an agent platform) take the same real actions over REST ----
   if (p.startsWith('/api/actions/')) {
     if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
     if (!hasActionsKey(req)) return send(res, 401, { error: 'unauthorized', message: 'Missing or wrong X-API-Key.' }, CORS);

@@ -5,8 +5,6 @@ EMedic AI is a patient support bot for **EMedic**, a fictional health system. Pa
 - **Industry:** Healthcare
 - **Use case:** Patient self-service and nurse triage, with human escalation
 
-> **Building the hackathon entry in eGain?** Follow **[EGAIN-GUIDE.md](EGAIN-GUIDE.md)**. It walks through every eGain screen and workflow, using this project as the live "hospital system" that eGain's API nodes call.
-
 ## What it does
 
 1. **Sourced health answers.** A health library of **40+ topics** in `knowledge/`: where to get care, common illnesses, medications, chronic conditions, prevention, mental health, and clinic services. Every answer shows its source. If a topic isn't covered, EMedic AI says so instead of guessing. With an AI API key, it also gives careful **general health info** on any other health topic, clearly labeled as such.
@@ -23,7 +21,7 @@ EMedic AI is a patient support bot for **EMedic**, a fictional health system. Pa
    **Booking:** a visit-details form in the chat (name, date of birth, phone, email, insurance and member ID, language, reason, consent), then **choose your nurse** from cards filtered by clinic, visit type and video, with speakers of your language first. **Meet our nurses** in the sidebar is a filterable directory with "Book with" buttons.
    **Find a provider near me:** search real licensed clinicians anywhere in the U.S. by ZIP code or city and state and type (family doctor, pediatrician, psychiatrist, OB-GYN, dentist and more), using the public U.S. NPI Registry. Shows name, credential, specialty, practice address and a map link only. Also works in chat: *"find a pediatrician near 20171"*. **Use my location** (optional, only when tapped) asks the browser for your location, rounds it to about 1 km, turns it into a ZIP code with the free U.S. Census geocoder, and uses it for that one search. It is never stored.
    **Schedule tab:** nurses open the appointment times patients can book (one time, or a standard day in one click) and remove open ones. The bot and the Actions API only offer those times. A new install starts with a default week. Times use `CLINIC_TZ` (default `America/New_York`).
-8. **Actions API** (`/api/actions/*`, key-protected, spec at `/openapi.json`). External agents, like an eGain AI Agent's API nodes, can take the same actions over REST. Add `?soft=1` to get friendly `ok:false` errors instead of HTTP errors.
+8. **Actions API** (`/api/actions/*`, key-protected, spec at `/openapi.json`). External AI agents and no-code workflow tools can take the same actions over REST. Add `?soft=1` to get friendly `ok:false` errors instead of HTTP errors.
 9. **Public health library** at `/library`. Export it for upload with `node scripts/export-library.js`, which writes `export/library/*.html`.
 10. **Smart nurse handoff:** the nurse sees priority (Urgent, High or Normal), sentiment, who the patient is asking about, workflow answers, what the patient said, and a suggested next step. They take over in the **Nurse Console** (`/agent`, protected by a passcode).
 
@@ -92,9 +90,8 @@ lib/actions.js       The real actions (book/cancel/reschedule, refills, callback
 lib/store.js         Saves actions to data/store.json
 lib/library.js       Public /library pages built from knowledge/
 lib/bot.js           Pre-chat, emergency screening, good-judgment checks, routing, handoff summaries
-public/openapi.json  Actions API spec (for eGain API nodes or any REST client)
+public/openapi.json  Actions API spec (for AI agent platforms or any REST client)
 scripts/             export-library.js: library → standalone HTML files for upload
-EGAIN-GUIDE.md       Step-by-step build of the eGain AI Agent entry
 lib/llm.js           Optional AI calls (grounded answers, general health info, summaries)
 lib/email.js         Optional booking confirmation emails (Brevo HTTP API)
 lib/schedule.js      Appointment times the nurses open in the Schedule tab
@@ -106,30 +103,5 @@ test/smoke.js        End-to-end tests
 ```
 
 To add knowledge, add a `## Heading` section to any file in `knowledge/`. Optional hidden lines: `<!-- keywords: extra search words -->` and `<!-- workflow: triage -->` (offers that workflow as a button after the answer).
-
-## Submission text (150 words)
-
-> **EMedic AI** gives patients trustworthy health help at any hour. Patients often can't tell whether they need the ER, urgent care or just rest. They wait on hold for simple refills, and they repeat their story to every nurse.
->
-> EMedic AI answers health questions from a clinician-style library and shows the source for every answer. It never guesses. A symptom checker screens for red flags first, then recommends the right level of care. Guided workflows handle prescription refills (with a controlled-medication safety stop) and appointment booking. Every message is screened for emergencies, which get immediate 911 or 988 guidance.
->
-> What sets it apart is **safety-first handoff**. Patients can chat live with a nurse, call, or request a callback. The nurse gets a prioritized summary: who's sick, symptoms, triage result and next step. That means fewer unnecessary ER visits, shorter phone queues, and patients who never repeat themselves.
-
-## 1-minute demo video script
-
-| Time | Show | Say |
-|---|---|---|
-| 0:00–0:07 | Loading screen → landing page | "This is EMedic AI, a 24/7 virtual care assistant for EMedic." |
-| 0:07–0:17 | Click **Myself**, then ask *"How much Tylenol can I take?"* and point at the source chip | "Ask any health question. Answers come from a trusted library, with the source shown." |
-| 0:17–0:35 | **New chat** → **My child** → **Check my symptoms** → No → Fever → Under 3 months → Mild → Less than 2 days | "The symptom checker screens for emergencies first, then tells you where to go. A fever in a newborn means the ER, right away." |
-| 0:35–0:50 | Click **Talk to a nurse** → **Chat with a nurse now**, then switch to the Nurse Console and accept | "Here's the distinctive part: one tap reaches a nurse by chat, phone or callback, and the nurse gets a prioritized summary." |
-| 0:50–1:00 | Type *"my dad has chest pain"* in a new chat | "And every message is screened for emergencies. EMedic AI always puts safety first." |
-
-## Checklist before submitting
-
-- [ ] `node test/smoke.js` passes (proves every workflow was tested)
-- [ ] Deployed, and the demo link opens
-- [ ] All four workflows clicked through on the deployed link
-- [ ] Video recorded (Windows: Win+Alt+R, or OBS)
 
 > EMedic, its phone numbers, prices and policies are fictional demo content. Health information is general education, not medical advice. This prototype is not for real patient data.
