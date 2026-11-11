@@ -427,6 +427,46 @@ server.listen(0, async () => {
     assert.match(slots.message, /with Aisha Rahman/);
   });
 
+  await check('asking for a nurse by name books with them (or explains why not)', async () => {
+    // Before a booking: start one with that nurse.
+    const a = await fresh('test-ask-nurse');
+    const [start] = await chat(a, 'I want to see Maria Gonzalez');
+    assert.match(start.text, /book you with \*\*Maria Gonzalez\*\*/);
+    assert.ok(!start.options.includes('Mental health'), "only Maria's visit types");
+    assert.match((await chat(await fresh('test-ask-nurse2'), 'can I get an appointment with Linh?'))[0].text, /\*\*Linh Tran\*\*/);
+    // During a booking: switch, and the form only offers that nurse's clinic.
+    const b = await fresh('test-switch-nurse');
+    await chat(b, 'Book an appointment');
+    await chat(b, 'Sick visit');
+    assert.match((await chat(b, "actually I'd like Wei Chen"))[0].text, /book you with \*\*Wei Chen\*\*/);
+    const [form] = await chat(b, 'In person');
+    assert.deepEqual(form.form.fields.find((f) => f.name === 'location').options.map((o) => o.value), ['center']);
+    const [times] = await chatWith(b, 'Sent', { form: { ...VISIT_FORM, location: 'center' } });
+    assert.match(times.text, /open times with \*\*Wei Chen\*\*/, 'skips the choose-a-nurse step');
+    // A nurse who can't do this visit: explained, nothing changes.
+    const c = await fresh('test-wrong-nurse');
+    await chat(c, 'Book an appointment');
+    await chat(c, 'Sick visit');
+    await chat(c, 'Video visit');
+    const [no] = await chat(c, 'I want Daniel Okafor');
+    assert.match(no.text, /Daniel Okafor only sees patients in person/);
+    assert.ok(no.form, 'still on the form');
+    // After times were shown: switch nurse and clinic, and show the new nurse's times.
+    const d = await fresh('test-late-switch');
+    await chat(d, 'Book an appointment');
+    await chat(d, 'Sick visit');
+    await chat(d, 'In person');
+    const [pick] = await chatWith(d, 'Sent', { form: { ...VISIT_FORM, location: 'main' } });
+    await chat(d, pick.options.at(-1));
+    const [moved] = await chat(d, 'actually can I see Maria instead');
+    assert.match(moved.text, /switching to \*\*Maria Gonzalez\*\* at \*\*Northgate Clinic\*\*/);
+    const [confirm] = await chat(d, moved.options[0]);
+    assert.match(confirm.text, /With:\*\* Maria Gonzalez/);
+    assert.match(confirm.text, /Where:\*\* Northgate Clinic/);
+    // A health question that happens to mention nothing about booking isn't hijacked.
+    assert.ok(!/book you with/.test((await chat(await fresh('test-no-hijack'), 'What is a normal blood pressure?'))[0].text));
+  });
+
   await check('booking confirmation email: from the form, from Settings, and when not set up', async () => {
     const realFetch = global.fetch;
     const sent = [];
