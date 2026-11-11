@@ -86,5 +86,7 @@
   </div>
   <script src="common.js"></script>
   <script src="agent.js"></script>
+  <!-- Autoplay demo for screen recordings, only when the URL has ?demo -->
+  <script>if (/[?&]demo\b/.test(location.search)) document.write('<script src="demo.js"><\/script>');</script>
 </body>
 </html>

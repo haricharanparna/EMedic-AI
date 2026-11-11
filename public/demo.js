@@ -2,14 +2,18 @@
 // It types, clicks and fills forms with a visible cursor while you narrate.
 // Keys: S start · → skip the current pause · ↓ pause/resume.
 // Demo chats use their own session and never touch your saved name, email or recent chats.
+// If you signed in to the Nurse Console in this same tab first, it then continues there by itself.
 (function () {
-  const PRIVATE = ['emedic-session', 'emedic-chats', 'emedic-intro-seen', 'emedic-name', 'emedic-email'];
-  const mem = {};
-  const store = CP.store;
-  CP.store = {
-    get: (k) => (PRIVATE.includes(k) ? mem[k] ?? null : store.get(k)),
-    set: (k, v) => { if (PRIVATE.includes(k)) mem[k] = v; else store.set(k, v); },
-  };
+  const onConsole = location.pathname.startsWith('/agent');
+  if (!onConsole) {
+    const PRIVATE = ['emedic-session', 'emedic-chats', 'emedic-intro-seen', 'emedic-name', 'emedic-email'];
+    const mem = {};
+    const store = CP.store;
+    CP.store = {
+      get: (k) => (PRIVATE.includes(k) ? mem[k] ?? null : store.get(k)),
+      set: (k, v) => { if (PRIVATE.includes(k)) mem[k] = v; else store.set(k, v); },
+    };
+  }
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -154,7 +158,37 @@
     await say('My dad has chest pain and can\'t breathe');
     scrollEnd();
     await hold(3500);
+
+    // 7. Over to the Nurse Console (only if you're signed in to it in this tab).
+    let signedIn = false;
+    try { signedIn = Boolean(sessionStorage.getItem('emedic-staff-passcode')); } catch { /* private mode */ }
+    if (signedIn) location.href = '/agent?demo';
+    else cursor.style.display = 'none';
+  }
+
+  // The Nurse Console part: the booking that was just made, then the nurse-managed schedule.
+  async function runConsole() {
+    document.body.appendChild(cursor);
+    await sleep(1200);
+    if (!$('#login').hidden) return; // not signed in: leave the page as it is
+    await hold(800);
+    await click($('#tabRequests'));
+    const findCard = () => [...document.querySelectorAll('#requests .req')].find((c) => /Jordan Smith/.test(c.textContent));
+    await moveTo(await until(findCard));
+    // The list redraws every couple of seconds, so keep putting the highlight back.
+    const light = setInterval(() => { const c = findCard(); if (c) c.style.boxShadow = '0 0 0 3px #2dd4bf'; }, 150);
+    await hold(3500);
+    clearInterval(light);
+    const c = findCard();
+    if (c) c.style.boxShadow = '';
+    await click($('#tabSchedule'));
+    await hold(2500);
     cursor.style.display = 'none';
+  }
+  if (onConsole) {
+    started = true; // it carries on from the chat by itself; → and ↓ still work
+    (document.readyState === 'loading' ? new Promise((r) => document.addEventListener('DOMContentLoaded', r)) : Promise.resolve())
+      .then(runConsole).catch((err) => console.error(err));
   }
 
   // The demo types into the page itself, so its controls use keys that never type anything.
