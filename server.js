@@ -94,7 +94,7 @@ function nurseDirectory(q) {
 
 function providerSearch(q) {
   const type = providers.TYPES[q.get('type')] ? q.get('type') : 'family';
-  return providers.search({ zip: q.get('zip'), city: q.get('city'), type, limit: Math.min(Number(q.get('limit')) || 8, 20) });
+  return providers.search({ zip: q.get('zip'), city: q.get('city'), state: q.get('state'), type, limit: Math.min(Number(q.get('limit')) || 8, 20) });
 }
 
 async function runAction(res, fn, headers, soft = false) {
@@ -185,7 +185,7 @@ async function route(req, res) {
       });
     }
     if (req.method === 'GET' && p === '/api/actions/providers') {
-      // Real Virginia clinicians from the NPI Registry: ?zip=20171 or ?city=Herndon, &type=family|pediatrics|...
+      // Real U.S. clinicians from the NPI Registry: ?zip=10001 or ?city=Austin&state=TX, &type=family|pediatrics|...
       return act(async () => {
         const r = await providerSearch(url(req).searchParams);
         if (r.error) throw new actions.ActionError(400, 'bad_location', r.error);

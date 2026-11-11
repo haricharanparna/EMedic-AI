@@ -7,6 +7,7 @@ process.env.STAFF_PASSCODE = 'test-passcode';
 process.env.ACTIONS_API_KEY = 'test-actions-key';
 process.env.DATA_FILE = path.join(os.tmpdir(), `emedic-test-${Date.now()}.json`);
 const server = require('../server');
+const providers = require('../lib/providers');
 delete process.env.AI_API_KEY; // test the offline path so results are deterministic
 delete process.env.EMAIL_API_KEY; // never send real email from tests
 delete process.env.EMAIL_FROM;
@@ -229,7 +230,7 @@ server.listen(0, async () => {
     }
   });
 
-  await check('find a real provider (NPI Registry): no phone numbers, Virginia only', async () => {
+  await check('find a real provider (NPI Registry): no phone numbers, anywhere in the U.S.', async () => {
     // A stand-in for the registry, so the test doesn't depend on the internet. It includes phone and fax
     // numbers on purpose: none of them may come back out.
     const fakeNpi = {
@@ -270,7 +271,7 @@ server.listen(0, async () => {
       assert.match(asked[0], /postal_code=201\*/);
       // Without a place, it asks; a bare city name answers.
       const [ask] = await chat(sid, 'I need a pediatrician');
-      assert.match(ask.text, /ZIP code\*\* or \*\*city/);
+      assert.match(ask.text, /ZIP code\*\*, or \*\*city and state/);
       const [byCity] = await chat(sid, 'Herndon');
       assert.equal(byCity.providers.length, 1);
       assert.equal((await chat(sid, 'pediatricians near Herndon, VA'))[0].providers.length, 1);
@@ -281,8 +282,19 @@ server.listen(0, async () => {
       await chat(mid, 'Sick visit');
       await chat(mid, 'In person');
       assert.equal((await chat(mid, 'find a pediatrician near 20171'))[0].providers?.length, 1);
-      // Outside Virginia: a clear message, no lookup.
-      assert.match((await chat(sid, 'find a pediatrician near 10001'))[0].text, /isn't in Virginia/);
+      // Anywhere in the U.S.: the ZIP picks the state; a city can carry its state.
+      await chat(sid, 'find a pediatrician near 10001');
+      assert.match(asked.at(-1), /state=NY/);
+      assert.match(asked.at(-1), /postal_code=100\*/);
+      await chat(sid, 'find a dentist in Austin, TX');
+      assert.match(asked.at(-1), /state=TX/);
+      assert.match(asked.at(-1), /city=AUSTIN(&|$)/);
+      assert.deepEqual(providers.splitCityState('Salt Lake City Utah'), { city: 'Salt Lake City', state: 'UT' });
+      assert.deepEqual(providers.splitCityState('Virginia Beach'), { city: 'Virginia Beach', state: null });
+      assert.deepEqual(providers.splitCityState('Fort Lee'), { city: 'Fort Lee', state: null });
+      assert.equal(providers.stateForZip('94110'), 'CA');
+      assert.equal(providers.stateForZip('99501'), 'AK');
+      assert.match((await chat(sid, 'find a pediatrician near 00001'))[0].text, /don't recognize that ZIP/);
       // Page and Actions API routes.
       const page = await (await fetch(`${base}/api/providers?zip=20171&type=pediatrics`)).json();
       assert.equal(page.results.length, 1);

@@ -693,7 +693,7 @@ async function searchProviders(ev) {
   const where = $('provWhere').value.trim();
   if (!where) { $('provWhere').focus(); return; }
   const q = new URLSearchParams({ type: $('provType').value, limit: '12' });
-  q.set(/^\d{5}$/.test(where) ? 'zip' : 'city', where.replace(/,?\s*(va|virginia)$/i, ''));
+  q.set(/^\d{5}(-\d{4})?$/.test(where) ? 'zip' : 'city', where);
   $('provResults').innerHTML = '<div class="dir-empty">Searching the NPI Registry…</div>';
   let data;
   try {
@@ -713,7 +713,8 @@ async function searchProviders(ev) {
     return;
   }
   $('provResults').innerHTML = data.results.length
-    ? providerCardsHtml(data.results, data.total)
+    ? (data.guessedState ? `<div class="dir-empty">Showing ${CP.esc(data.where)}. Not the right one? Add the state after the city name.</div>` : '')
+      + providerCardsHtml(data.results, data.total)
     : `<div class="dir-empty">No ${CP.esc(data.type.toLowerCase())} listings found for ${CP.esc(data.where)}. Try a nearby ZIP or a bigger city.</div>`;
 }
 function openProviders() {
