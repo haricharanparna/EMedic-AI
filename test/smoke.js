@@ -275,6 +275,12 @@ server.listen(0, async () => {
       assert.equal(byCity.providers.length, 1);
       assert.equal((await chat(sid, 'pediatricians near Herndon, VA'))[0].providers.length, 1);
       assert.match(asked.at(-1), /city=HERNDON/);
+      // Mid-booking, a provider search leaves the booking and answers it.
+      const mid = await fresh('test-providers-mid');
+      await chat(mid, 'Book an appointment');
+      await chat(mid, 'Sick visit');
+      await chat(mid, 'In person');
+      assert.equal((await chat(mid, 'find a pediatrician near 20171'))[0].providers?.length, 1);
       // Outside Virginia: a clear message, no lookup.
       assert.match((await chat(sid, 'find a pediatrician near 10001'))[0].text, /isn't in Virginia/);
       // Page and Actions API routes.
