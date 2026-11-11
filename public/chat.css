@@ -534,6 +534,9 @@ html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !imp
 .p-source { margin-top: 8px; font-size: 12px; color: var(--faint); }
 #provWhere { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; outline: none; }
 #provWhere:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.loc-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 14px; font-weight: 600; color: var(--brand); background: var(--surface-2); cursor: pointer; }
+.loc-btn:hover { border-color: var(--brand); }
+.loc-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #provResults { min-height: 120px; }
 
 /* Sidebar fit: Recent always keeps room for a few chats; on short screens the whole sidebar scrolls

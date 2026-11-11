@@ -735,6 +735,22 @@
             "description": "A ZIP code or a city and state in one field, e.g. 10001 or Austin, TX"
           },
           {
+            "name": "lat",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Latitude, with lon, instead of a ZIP code or city (rounded to about 1 km and not stored)"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Longitude, with lat"
+          },
+          {
             "name": "zip",
             "in": "query",
             "schema": {

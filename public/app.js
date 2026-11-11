@@ -199,7 +199,7 @@ function renderMessage(m, { animate = true } = {}) {
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = o;
-        b.onclick = () => send(o);
+        b.onclick = o === 'Use my location' ? () => sendLocation() : () => send(o);
         chips.appendChild(b);
       }
       row.querySelector('.content').appendChild(chips);
@@ -375,6 +375,17 @@ function showThinking() {
 }
 
 // ---------------- Sending ----------------
+// The "Use my location" chip: ask the browser, then send the rounded point with the message.
+async function sendLocation() {
+  try { send('Use my location', { coords: await myLocation() }); } catch (err) {
+    const note = document.createElement('div');
+    note.className = 'row system';
+    note.innerHTML = `<span>${CP.esc(err.message)}</span>`;
+    log.appendChild(note);
+    note.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }
+}
+
 async function send(text, extra = {}) {
   text = String(text || '').trim();
   if (!text || busy) return;
@@ -681,12 +692,26 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('nurs
 $('dirLanguage').addEventListener('change', loadDirectory);
 
 // ---------------- Find a real provider (NPI Registry) ----------------
-async function searchProviders(ev) {
+// "Use my location": asks the browser only when tapped, rounds to about 1 km, and is used for one search.
+function myLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error("This browser can't share your location. Please type your ZIP code instead.")); return; }
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: Math.round(p.coords.latitude * 100) / 100, lon: Math.round(p.coords.longitude * 100) / 100 }),
+      (e) => reject(new Error(e.code === 1
+        ? "Location is turned off for this site, so I can't use it. Please type your ZIP code or city instead."
+        : "Couldn't get your location just now. Please type your ZIP code or city instead.")),
+      { timeout: 10000, maximumAge: 600000 },
+    );
+  });
+}
+
+async function searchProviders(ev, near) {
   ev?.preventDefault();
   const where = $('provWhere').value.trim();
-  if (!where) { $('provWhere').focus(); return; }
+  if (!where && !near) { $('provWhere').focus(); return; }
   const q = new URLSearchParams({ type: $('provType').value, limit: '12' });
-  q.set(/^\d{5}(-\d{4})?$/.test(where) ? 'zip' : 'city', where);
+  if (near) { q.set('lat', near.lat); q.set('lon', near.lon); } else q.set(/^\d{5}(-\d{4})?$/.test(where) ? 'zip' : 'city', where);
   $('provResults').innerHTML = '<div class="dir-empty">Searching the NPI Registry…</div>';
   let data;
   try {
@@ -705,6 +730,7 @@ async function searchProviders(ev) {
       : err.message)}</div>`;
     return;
   }
+  if (near && data.zip) $('provWhere').value = data.zip; // show which ZIP your location matched
   $('provResults').innerHTML = data.results.length
     ? (data.guessedState ? `<div class="dir-empty">Showing ${CP.esc(data.where)}. Not the right one? Add the state after the city name.</div>` : '')
       + providerCardsHtml(data.results, data.total)
@@ -725,3 +751,9 @@ $('providersClose').onclick = closeProviders;
 $('providersModal').addEventListener('click', (e) => { if (e.target.id === 'providersModal') closeProviders(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('providersModal').hidden) closeProviders(); });
 $('provForm').addEventListener('submit', searchProviders);
+$('provNear').onclick = async () => {
+  $('provResults').innerHTML = '<div class="dir-empty">Finding your location…</div>';
+  try { await searchProviders(null, await myLocation()); } catch (err) {
+    $('provResults').innerHTML = `<div class="dir-empty">${CP.esc(err.message)}</div>`;
+  }
+};

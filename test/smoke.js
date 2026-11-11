@@ -251,6 +251,10 @@ server.listen(0, async () => {
     const asked = [];
     global.fetch = async (u, opts) => {
       if (String(u).includes('npiregistry.cms.hhs.gov')) { asked.push(String(u)); return new Response(JSON.stringify(fakeNpi), { status: 200 }); }
+      if (String(u).includes('geocoding.geo.census.gov')) {
+        asked.push(String(u));
+        return new Response(JSON.stringify({ result: { geographies: { '2020 Census ZIP Code Tabulation Areas': [{ ZCTA5: '20171' }] } } }), { status: 200 });
+      }
       return realFetch(u, opts);
     };
     try {
@@ -292,6 +296,16 @@ server.listen(0, async () => {
       assert.equal(providers.stateForZip('94110'), 'CA');
       assert.equal(providers.stateForZip('99501'), 'AK');
       assert.match((await chat(sid, 'find a pediatrician near 00001'))[0].text, /don't recognize that ZIP/);
+      // "Use my location": offered when asking where; the point is rounded, turned into a ZIP, and searched.
+      const [where] = await chat(sid, 'I need a pediatrician');
+      assert.ok(where.options.includes('Use my location'));
+      const [near] = await chatWith(sid, 'Use my location', { coords: { lat: 38.97321, lon: -77.43219 } });
+      assert.match(asked.findLast((u) => u.includes('census.gov')), /x=-77\.43&y=38\.97&/, 'only a rounded point is sent');
+      assert.match(near.text, /near \*\*you \(ZIP 20171\)\*\*/);
+      assert.equal(near.providers.length, 1);
+      const page2 = await (await fetch(`${base}/api/providers?lat=38.97&lon=-77.43&type=pediatrics`)).json();
+      assert.equal(page2.zip, '20171');
+      assert.equal(page2.results.length, 1);
       // Page and Actions API routes.
       const page = await (await fetch(`${base}/api/providers?zip=20171&type=pediatrics`)).json();
       assert.equal(page.results.length, 1);

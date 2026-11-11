@@ -97,7 +97,8 @@ function providerSearch(q) {
   const zip = q.get('zip') || (/^\d{5}(-\d{4})?$/.test(where) ? where : '');
   const city = q.get('city') || (zip ? '' : where);
   const type = providers.TYPES[q.get('type')] ? q.get('type') : providers.typeFromText(q.get('type')) || 'family';
-  return providers.search({ zip, city, state: q.get('state'), type, limit: Math.min(Number(q.get('limit')) || 8, 20) });
+  const near = q.get('lat') && q.get('lon') ? { lat: Number(q.get('lat')), lon: Number(q.get('lon')) } : {};
+  return providers.search({ zip, city, state: q.get('state'), ...near, type, limit: Math.min(Number(q.get('limit')) || 8, 20) });
 }
 
 async function runAction(res, fn, headers, soft = false) {
@@ -151,14 +152,16 @@ async function route(req, res) {
 
   // ---- Patient chat API ----
   if (req.method === 'POST' && p === '/api/chat') {
-    const { sessionId, message, since, name, email, form } = await readBody(req);
+    const { sessionId, message, since, name, email, form, coords } = await readBody(req);
     if (!ID_RE.test(sessionId || '') || typeof message !== 'string' || !message.trim()) {
       return send(res, 400, { error: 'sessionId and message are required' });
     }
     const s = bot.getSession(sessionId);
     if (typeof name === 'string') bot.setName(s, name);
     if (typeof email === 'string') bot.setEmail(s, email);
-    await bot.handleMessage(s, message.trim().slice(0, 1000), { form: form && typeof form === 'object' ? form : undefined });
+    // coords: only sent when the patient taps "Use my location" (used for one search, never stored).
+    const near = coords && Number.isFinite(Number(coords.lat)) && Number.isFinite(Number(coords.lon)) ? { lat: Number(coords.lat), lon: Number(coords.lon) } : undefined;
+    await bot.handleMessage(s, message.trim().slice(0, 1000), { form: form && typeof form === 'object' ? form : undefined, coords: near });
     return send(res, 200, bot.messagesSince(s, since));
   }
   if (req.method === 'GET' && (m = p.match(/^\/api\/session\/([\w-]+)$/))) {
