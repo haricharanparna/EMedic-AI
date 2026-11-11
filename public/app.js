@@ -697,11 +697,19 @@ async function searchProviders(ev) {
   $('provResults').innerHTML = '<div class="dir-empty">Searching the NPI Registry…</div>';
   let data;
   try {
-    const res = await fetch(`/api/providers?${q}`);
-    data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    // One quiet retry: the connection can drop for a moment (e.g. while the server restarts after an update).
+    let res;
+    try { res = await fetch(`/api/providers?${q}`); } catch {
+      await new Promise((r) => setTimeout(r, 2500));
+      res = await fetch(`/api/providers?${q}`);
+    }
+    data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "The search didn't work this time. Please try again.");
   } catch (err) {
-    $('provResults').innerHTML = `<div class="dir-empty">${CP.esc(err.message || 'Something went wrong. Try again.')}</div>`;
+    const offline = err instanceof TypeError; // the browser couldn't reach the server at all
+    $('provResults').innerHTML = `<div class="dir-empty">${CP.esc(offline
+      ? "Couldn't reach EMedic right now. If the site was just updated, wait a minute and try again."
+      : err.message)}</div>`;
     return;
   }
   $('provResults').innerHTML = data.results.length
