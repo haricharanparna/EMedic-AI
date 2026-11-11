@@ -30,13 +30,12 @@ server.listen(0, async () => {
     return messages.slice(messages.findLastIndex((m) => m.from === 'user') + 1);
   };
   const VISIT_FORM = { fullName: 'Pat Example', dob: '1985-04-12', phone: '(555) 222-3333', insurance: 'Aetna', memberId: 'A123', language: 'English', reason: 'sore throat', consent: true };
-  // Book through the chat: visit type, format, the visit-details form, a nurse, the first time, confirm.
-  const bookChat = async (sid, { visit = 'Sick visit', format = 'Video visit', form = {}, nurse, extra = {} } = {}) => {
+  // Book through the chat (always by video): visit type, the visit-details form, a nurse, the first time, confirm.
+  const bookChat = async (sid, { visit = 'Sick visit', form = {}, nurse, extra = {} } = {}) => {
     await chatWith(sid, 'Book an appointment', extra);
-    await chatWith(sid, visit, extra);
-    const [ask] = await chatWith(sid, format, extra);
+    const [ask] = await chatWith(sid, visit, extra);
     assert.ok(ask.form, 'expected the visit-details form');
-    const values = { ...VISIT_FORM, ...(format === 'In person' ? { location: 'main' } : {}), ...form };
+    const values = { ...VISIT_FORM, ...form };
     let [step] = await chatWith(sid, 'Sent my visit details', { ...extra, form: values });
     if (step.nurses) [step] = await chatWith(sid, nurse || step.options.at(-1), extra);
     const [confirm] = await chatWith(sid, step.options[0], extra);
@@ -206,8 +205,8 @@ server.listen(0, async () => {
     assert.equal(day.skipped.length, 1);
     // Booked times can't be removed; open ones can.
     const apiKey = { 'Content-Type': 'application/json', 'X-API-Key': 'test-actions-key' };
-    const booked = await (await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' }) })).json();
-    const list = (await (await staff('GET', '/api/agent/slots')).json()).slots;
+    const booked = await (await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', preference: 'earliest' }) })).json();
+    const list =(await (await staff('GET', '/api/agent/slots')).json()).slots;
     const mine = list.find((s) => s.label === booked.time);
     assert.equal(mine.booking.ref, booked.ref);
     assert.equal((await staff('DELETE', `/api/agent/slots/${encodeURIComponent(mine.start)}`)).status, 409);
@@ -219,9 +218,8 @@ server.listen(0, async () => {
     await fresh('test-no-slots');
     await chat('test-no-slots', 'Book an appointment');
     await chat('test-no-slots', 'Sick visit');
-    await chat('test-no-slots', 'In person');
-    assert.match((await chatWith('test-no-slots', 'Sent', { form: { ...VISIT_FORM, location: 'main' } }))[0].text, /aren't any open appointment times/);
-    const none = await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' }) });
+    assert.match((await chatWith('test-no-slots', 'Sent', { form: VISIT_FORM }))[0].text, /aren't any open appointment times/);
+    const none = await fetch(`${base}/api/actions/appointments`, { method: 'POST', headers: apiKey, body: JSON.stringify({ visitType: 'Sick visit', preference: 'earliest' }) });
     assert.equal(none.status, 409);
     // Put a normal week back for the tests that follow.
     for (let day = 5; day <= 18; day++) {
@@ -280,7 +278,6 @@ server.listen(0, async () => {
       const mid = await fresh('test-providers-mid');
       await chat(mid, 'Book an appointment');
       await chat(mid, 'Sick visit');
-      await chat(mid, 'In person');
       assert.equal((await chat(mid, 'find a pediatrician near 20171'))[0].providers?.length, 1);
       // Anywhere in the U.S.: the ZIP picks the state; a city can carry its state.
       await chat(sid, 'find a pediatrician near 10001');
@@ -355,7 +352,7 @@ server.listen(0, async () => {
 
   await check('reschedule and cancel by confirmation number', async () => {
     const sid = await fresh('test-manage');
-    const [booked] = await bookChat(sid, { visit: 'Follow-up visit', format: 'In person' });
+    const [booked] = await bookChat(sid, { visit: 'Follow-up visit' });
     const apt = booked.text.match(/APT-\d{6}/)[0];
     const bookedTime = booked.text.match(/You're booked!\*\* (.+?) with /)[1];
     const [found] = await chat(sid, `please reschedule ${apt}`);
@@ -381,25 +378,27 @@ server.listen(0, async () => {
 
   await check('booking: visit-details form, choosing a nurse, and what gets saved', async () => {
     const sid = await fresh('test-intake');
-    await chat(sid, 'Book an appointment');
-    await chat(sid, 'Sick visit');
-    const [ask] = await chat(sid, 'In person');
+    const [type] = await chat(sid, 'Book an appointment');
+    assert.match(type.text, /by video/);
+    assert.ok(!type.options.includes('Vaccine only'));
+    const [ask] = await chat(sid, 'Sick visit');
     const names = ask.form.fields.map((f) => f.name);
-    for (const f of ['fullName', 'dob', 'phone', 'email', 'location', 'insurance', 'memberId', 'language', 'reason', 'consent']) assert.ok(names.includes(f), `form has ${f}`);
+    for (const f of ['fullName', 'dob', 'phone', 'email', 'insurance', 'memberId', 'language', 'reason', 'consent']) assert.ok(names.includes(f), `form has ${f}`);
+    assert.ok(!names.includes('location'), 'no clinic to pick: EMedic visits are by video');
     // Typing instead of using the form gets a nudge and the form again.
     const [nudge] = await chat(sid, 'hello?');
     assert.match(nudge.text, /fill in the form/);
     assert.ok(nudge.form);
     // Bad fields come back with an error and the values kept.
-    const bad = { ...VISIT_FORM, phone: '555', location: 'northgate', language: 'Spanish' };
+    const bad = { ...VISIT_FORM, phone: '555', language: 'Spanish' };
     const [err] = await chatWith(sid, 'Sent my visit details', { form: bad });
     assert.match(err.form.error, /10-digit phone/);
     assert.equal(err.form.fields.find((f) => f.name === 'fullName').value, 'Pat Example');
     assert.match((await chatWith(sid, 'Sent', { form: { ...bad, phone: '(555) 222-3333', consent: false } }))[0].form.error, /tick the box/);
-    // Valid: nurses who work at Northgate and do sick visits; Spanish speakers first.
+    // Valid: nurses who do sick visits; Spanish speakers first.
     const [pick] = await chatWith(sid, 'Sent my visit details', { form: { ...bad, phone: '(555) 222-3333' } });
     assert.ok(pick.nurses.length >= 1);
-    assert.ok(pick.nurses.every((n) => n.location === 'Northgate Clinic'));
+    assert.ok(pick.nurses.every((n) => n.visits.includes('Sick visit') && n.location === undefined));
     assert.equal(pick.nurses[0].name, 'Maria Gonzalez');
     assert.equal(pick.nurses[0].speaksYourLanguage, true);
     assert.equal(pick.options.at(-1), 'No preference (first available)');
@@ -408,7 +407,7 @@ server.listen(0, async () => {
     assert.match(times.text, /open times with \*\*Maria Gonzalez\*\*/);
     const [confirm] = await chat(sid, times.options[0]);
     assert.match(confirm.text, /With:\*\* Maria Gonzalez, FNP-C/);
-    assert.match(confirm.text, /Where:\*\* Northgate Clinic, 45 Northgate Blvd/);
+    assert.match(confirm.text, /Where:\*\* Video visit/);
     assert.match(confirm.text, /Insurance:\*\* Aetna \(member ID A123\)/);
     const [done] = await chat(sid, 'Confirm booking');
     assert.match(done.text, /with Maria Gonzalez, FNP-C/);
@@ -416,7 +415,9 @@ server.listen(0, async () => {
     const ref = done.text.match(/APT-\d{6}/)[0];
     const rec = (await get('/api/agent/requests')).find((r) => r.ref === ref);
     assert.equal(rec.nurseId, 'maria-gonzalez');
-    assert.equal(rec.location, 'Northgate Clinic');
+    assert.equal(rec.location, undefined);
+    assert.equal(rec.format, 'Video visit');
+    assert.match(rec.videoLink, /meet\.jit\.si/);
     assert.equal(rec.patientName, 'Pat Example');
     assert.equal(rec.dateOfBirth, '04/12/1985');
     assert.equal(rec.insurance, 'Aetna');
@@ -426,38 +427,44 @@ server.listen(0, async () => {
     const sid2 = await fresh('test-selfpay');
     await chat(sid2, 'Book an appointment');
     await chat(sid2, 'Sick visit');
-    await chat(sid2, 'Video visit');
-    const [pick2] = await chatWith(sid2, 'Sent', { form: { ...VISIT_FORM, insurance: 'Self-pay (no insurance)' } });
-    assert.ok(pick2.nurses.every((n) => n.video), 'video visits only show nurses who do video');
+    await chatWith(sid2, 'Sent', { form: { ...VISIT_FORM, insurance: 'Self-pay (no insurance)' } });
     const [t2] = await chat(sid2, 'No preference (first available)');
     const [c2] = await chat(sid2, t2.options[0]);
     assert.match(c2.text, /Self-pay:\*\* video visits are \*\*\$49\*\*/);
     assert.doesNotMatch(c2.text, /member ID/);
+    // Wanting an in-person visit: no booking, but help finding a real provider nearby.
+    const sid3 = await fresh('test-in-person');
+    await chat(sid3, 'Book an appointment');
+    const [redirect] = await chat(sid3, 'in person please');
+    assert.match(redirect.text, /only books \*\*video visits\*\*/);
+    assert.match(redirect.text, /ZIP code/);
+    const realFetch = global.fetch;
+    global.fetch = async (u, opts) => (String(u).includes('npiregistry') ? new Response(JSON.stringify({ results: [] }), { status: 200 }) : realFetch(u, opts));
+    try {
+      assert.match((await chat(sid3, '10001'))[0].text, /family medicine doctor\*\* listings for \*\*10001/);
+    } finally { global.fetch = realFetch; }
   });
 
   await check('nurse directory and "Book with" a nurse', async () => {
     const all = await (await fetch(`${base}/api/nurses`)).json();
     assert.equal(all.nurses.length, 8);
-    assert.equal(all.locations.length, 3);
-    assert.ok(all.nurses.every((n) => n.name && n.title && n.location && n.languages.length && 'next' in n));
-    const spanish = await (await fetch(`${base}/api/nurses?language=Spanish&video=1`)).json();
+    assert.equal(all.locations, undefined, 'no clinics: every visit is by video');
+    assert.ok(all.nurses.every((n) => n.name && n.title && n.video && !n.location && n.languages.length && 'next' in n));
+    const spanish = await (await fetch(`${base}/api/nurses?language=Spanish`)).json();
     assert.deepEqual(spanish.nurses.map((n) => n.name).sort(), ['Carlos Rivera', 'Maria Gonzalez']);
     // "Book with ..." from the directory picks that nurse and skips the choose-a-nurse step.
     const sid = await fresh('test-book-with');
     const [type] = await chat(sid, 'Book with Daniel Okafor');
     assert.match(type.text, /book you with \*\*Daniel Okafor\*\*/);
-    assert.deepEqual(type.options, ['Sick visit', 'Vaccine only'], "only Daniel's visit types");
-    const [mode] = await chat(sid, 'Vaccine only');
-    assert.deepEqual(mode.options, ['In person'], 'Daniel does not do video');
-    const [form] = await chat(sid, 'In person');
-    const loc = form.form.fields.find((f) => f.name === 'location');
-    assert.deepEqual(loc.options.map((o) => o.value), ['main'], "only Daniel's clinic");
-    const [times] = await chatWith(sid, 'Sent', { form: { ...VISIT_FORM, location: 'main', reason: 'flu shot' } });
+    assert.deepEqual(type.options, ['Sick visit', 'Follow-up visit', 'I need an in-person visit'], "only Daniel's visit types");
+    const [form] = await chat(sid, 'Sick visit');
+    assert.ok(form.form, 'straight to the form');
+    const [times] = await chatWith(sid, 'Sent', { form: { ...VISIT_FORM, reason: 'flu' } });
     assert.match(times.text, /open times with \*\*Daniel Okafor\*\*/);
     // Actions API: nurse list and nurse-specific times.
     const apiKey = { 'X-API-Key': 'test-actions-key' };
-    const list = await (await fetch(`${base}/api/actions/nurses?location=northgate`, { headers: apiKey })).json();
-    assert.ok(list.nurses.every((n) => n.location === 'Northgate Clinic'));
+    const list = await (await fetch(`${base}/api/actions/nurses?language=Spanish`, { headers: apiKey })).json();
+    assert.equal(list.nurses.length, 2);
     assert.match(list.message, /Maria Gonzalez/);
     const slots = await (await fetch(`${base}/api/actions/slots?nurse=Aisha`, { headers: apiKey })).json();
     assert.match(slots.message, /with Aisha Rahman/);
@@ -470,35 +477,31 @@ server.listen(0, async () => {
     assert.match(start.text, /book you with \*\*Maria Gonzalez\*\*/);
     assert.ok(!start.options.includes('Mental health'), "only Maria's visit types");
     assert.match((await chat(await fresh('test-ask-nurse2'), 'can I get an appointment with Linh?'))[0].text, /\*\*Linh Tran\*\*/);
-    // During a booking: switch, and the form only offers that nurse's clinic.
+    // During a booking: switch, and skip the choose-a-nurse step.
     const b = await fresh('test-switch-nurse');
     await chat(b, 'Book an appointment');
     await chat(b, 'Sick visit');
     assert.match((await chat(b, "actually I'd like Wei Chen"))[0].text, /book you with \*\*Wei Chen\*\*/);
-    const [form] = await chat(b, 'In person');
-    assert.deepEqual(form.form.fields.find((f) => f.name === 'location').options.map((o) => o.value), ['center']);
-    const [times] = await chatWith(b, 'Sent', { form: { ...VISIT_FORM, location: 'center' } });
+    const [times] = await chatWith(b, 'Sent', { form: VISIT_FORM });
     assert.match(times.text, /open times with \*\*Wei Chen\*\*/, 'skips the choose-a-nurse step');
     // A nurse who can't do this visit: explained, nothing changes.
     const c = await fresh('test-wrong-nurse');
     await chat(c, 'Book an appointment');
-    await chat(c, 'Sick visit');
-    await chat(c, 'Video visit');
+    await chat(c, 'Mental health');
     const [no] = await chat(c, 'I want Daniel Okafor');
-    assert.match(no.text, /Daniel Okafor only sees patients in person/);
+    assert.match(no.text, /Daniel Okafor doesn't do mental health visits/);
     assert.ok(no.form, 'still on the form');
-    // After times were shown: switch nurse and clinic, and show the new nurse's times.
+    // After times were shown: switch nurse, and show the new nurse's times.
     const d = await fresh('test-late-switch');
     await chat(d, 'Book an appointment');
     await chat(d, 'Sick visit');
-    await chat(d, 'In person');
-    const [pick] = await chatWith(d, 'Sent', { form: { ...VISIT_FORM, location: 'main' } });
+    const [pick] = await chatWith(d, 'Sent', { form: VISIT_FORM });
     await chat(d, pick.options.at(-1));
     const [moved] = await chat(d, 'actually can I see Maria instead');
-    assert.match(moved.text, /switching to \*\*Maria Gonzalez\*\* at \*\*Northgate Clinic\*\*/);
+    assert.match(moved.text, /switching to \*\*Maria Gonzalez\*\*\./);
     const [confirm] = await chat(d, moved.options[0]);
     assert.match(confirm.text, /With:\*\* Maria Gonzalez/);
-    assert.match(confirm.text, /Where:\*\* Northgate Clinic/);
+    assert.match(confirm.text, /Where:\*\* Video visit/);
     // A health question that happens to mention nothing about booking isn't hijacked.
     assert.ok(!/book you with/.test((await chat(await fresh('test-no-hijack'), 'What is a normal blood pressure?'))[0].text));
   });
@@ -521,8 +524,7 @@ server.listen(0, async () => {
       const extra = { email: 'saved@example.com' };
       await chatWith('test-email-settings', 'Myself', extra);
       await chatWith('test-email-settings', 'Book an appointment', extra);
-      await chatWith('test-email-settings', 'Sick visit', extra);
-      const [ask] = await chatWith('test-email-settings', 'Video visit', extra);
+      const [ask] = await chatWith('test-email-settings', 'Sick visit', extra);
       assert.equal(ask.form.fields.find((f) => f.name === 'email').value, 'saved@example.com');
       await fresh('test-email-settings2');
       fromSettings = await bookChat('test-email-settings2', { extra });
@@ -564,12 +566,13 @@ server.listen(0, async () => {
     assert.equal(ok.emailSent, false);
     assert.match(ok.message, /You're booked/);
     assert.match(ok.message, /email isn't set up/);
-    // Video visits come back with a unique join link; in-person visits don't get one.
+    // Every visit is by video and comes back with a unique join link; in person is turned away politely.
     assert.match(ok.videoLink, /^https:\/\/meet\.jit\.si\/EMedic-APT-\d{6}-[0-9a-f]{8}$/);
     assert.ok(ok.message.includes(ok.videoLink));
-    const inPerson = await (await call({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' })).json();
-    assert.equal(inPerson.videoLink, undefined);
-    const again = await (await call({ visitType: 'Sick visit', format: 'video', preference: 'earliest' })).json();
+    const inPerson = await call({ visitType: 'Sick visit', format: 'In person', preference: 'earliest' });
+    assert.equal(inPerson.status, 400);
+    assert.match((await inPerson.json()).message || '', /video visits only/);
+    const again = await (await call({ visitType: 'Sick visit', preference: 'earliest' })).json();
     assert.notEqual(again.videoLink, ok.videoLink, 'each visit gets its own room');
   });
 
@@ -613,9 +616,9 @@ server.listen(0, async () => {
     assert.equal((await (await apiPost(`/api/actions/appointments/${booked.ref}/cancel`, {})).json()).status, 'Cancelled');
     assert.equal((await apiGet('/api/actions/appointments/APT-000000')).status, 404);
     // A preference word in the time field books the next matching slot.
-    const morning = await (await apiPost('/api/actions/appointments', { visitType: 'Checkup', format: 'In person', time: 'morning' })).json();
+    const morning = await (await apiPost('/api/actions/appointments', { visitType: 'Checkup', time: 'morning' })).json();
     assert.match(morning.time, /AM$/);
-    assert.equal((await apiPost('/api/actions/appointments', { visitType: 'Checkup', format: 'In person', time: 'Sun, Jan 1, 9:00 AM' })).status, 409);
+    assert.equal((await apiPost('/api/actions/appointments', { visitType: 'Checkup', time: 'Sun, Jan 1, 9:00 AM' })).status, 409);
   });
 
   await check('actions API: refill rules and callback', async () => {

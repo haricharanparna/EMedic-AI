@@ -177,15 +177,15 @@ Free-text answers are fine. The API understands answers like "6 weeks", "pretty 
 
 | # | Node | Settings |
 |---|---|---|
-| 1 | **Question (Select)** | `What kind of visit?` `Sick visit` · `Annual physical / checkup` · `Follow-up visit` · `Mental health` · `Vaccine only`, then a **Set Variable** `visitType` on each branch (or use Text with Variable `visitType`) |
-| 2 | **Question (Select)** | `In person or video?` `In person` · `Video visit`, then Set Variable `format` |
+| 1 | **Question (Select)** | `What kind of visit?` `Sick visit` · `Annual physical / checkup` · `Follow-up visit` · `Mental health`, then a **Set Variable** `visitType` on each branch (or use Text with Variable `visitType`) |
+| 2 | **Statement** | `EMedic visits are by video, so you can join from anywhere in the U.S. Need to be seen in person? Ask me to find a provider near you.` |
 | 3 | **Question (Select)** | `When works best?` `Earliest available` · `Morning` · `Afternoon`, then Set Variable `preference` |
 | 4 | **Question (Text)** | `In a few words, what's the visit for?` → Variable `reason` |
 | 5 | **Question (Select)** | `Want a confirmation email?` `Yes, email me` · `No thanks`. On **No thanks**, skip to node 7. |
 | 6 | **Email** | `What email should we send it to?` → Variable `email` |
-| 7 | **API** | **POST** `APP/api/actions/appointments?soft=1` · Body `{"visitType":"{{visitType}}","format":"{{format}}","preference":"{{preference}}","reason":"{{reason}}","email":"{{email}}"}` · Map `ok` → `bookOk`, `message` → `bookMessage`, `ref` → `aptRef` |
+| 7 | **API** | **POST** `APP/api/actions/appointments?soft=1` · Body `{"visitType":"{{visitType}}","preference":"{{preference}}","reason":"{{reason}}","email":"{{email}}"}` · Map `ok` → `bookOk`, `message` → `bookMessage`, `ref` → `aptRef` |
 
-> **Optional extras the booking API accepts** (add Question nodes for any you want): `nurse` (a name like `Maria`; list them with **GET** `APP/api/actions/nurses?location=northgate` → map `message`), `location` (`main`, `northgate` or `center`, in-person only), `patientName`, `dateOfBirth`, `phone`, `insurance` (Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Medicare, Medicaid, Other insurance, Self-pay (no insurance)), `memberId`, `language`. The reply's `message` then says who the visit is with and where.
+> **Optional extras the booking API accepts** (add Question nodes for any you want): `nurse` (a name like `Maria`; list them with **GET** `APP/api/actions/nurses?language=Spanish` → map `message`), `patientName`, `dateOfBirth`, `phone`, `insurance` (Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Medicare, Medicaid, Other insurance, Self-pay (no insurance)), `memberId`, `language`. The reply's `message` then says who the visit is with and where.
 
 | 8 | **Statement** *(Success)* | `{{bookMessage}}` (for example: *"You're booked for Tue, Nov 10, 1:00 PM … Confirmation APT-482913 … Confirmation sent to pat@example.com."*) |
 | 9 | **Statement** *(Error/Timeout)* | `Booking is unavailable right now. Call (555) 010-2273 or try again in a moment.` |
@@ -280,7 +280,7 @@ Test each path **twice**: once in the **Test AI Agent** tab and once in the **de
 | Declines risk | "How much ibuprofen for my 3 year old, 30 lbs?" | Won't calculate; points to the label, pharmacist or nurse |
 | Symptom Check | "Should I go to urgent care?" → No → fever → 6 weeks → mild → 1 day | ER now (infant fever) |
 | Symptom Check | … → rash → 30 → mild → today | Home care with tips |
-| Book | "I need to book an appointment" → Sick → Video → Afternoon → "ear pain" | Booked + APT number; **appears in Nurse Console → Requests** |
+| Book | "I need to book an appointment" → Sick → Afternoon → "ear pain" | Booked + APT number; **appears in Nurse Console → Requests** |
 | Manage | "Cancel my appointment" → APT number → Cancel it | Cancelled message |
 | Refill | "I need a refill" → lisinopril 10 mg → No → date → No → mail order | RX number, waiting for approval |
 | Refill (safety) | "Refill" → oxycodone → Yes | Polite refusal |

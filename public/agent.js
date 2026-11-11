@@ -233,7 +233,7 @@ function requestLines(r) {
   if (r.type === 'callback') return [`Call ${r.phone} · ${r.bestTime}`, `Reason: ${r.reason}`];
   return [
     `${r.visitType} · ${r.format}${r.nurseName ? ` · with ${r.nurseName}` : ''}`,
-    `${r.time}${r.location ? ` · ${r.location}` : ''}`,
+    r.time,
     ...(r.patientName ? [`${r.patientName}${r.dateOfBirth ? ` · DOB ${r.dateOfBirth}` : ''}${r.phone ? ` · ${r.phone}` : ''}`] : []),
     ...(r.insurance ? [`Insurance: ${r.insurance}${r.memberId ? ` (${r.memberId})` : ''}${r.language && r.language !== 'English' ? ` · Speaks ${r.language}` : ''}`] : []),
     `Reason: ${r.reason}`,

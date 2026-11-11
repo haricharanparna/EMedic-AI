@@ -86,12 +86,6 @@
           "nurseName": {
             "type": "string"
           },
-          "location": {
-            "type": "string"
-          },
-          "address": {
-            "type": "string"
-          },
           "insurance": {
             "type": "string"
           }
@@ -215,7 +209,6 @@
                 "type": "object",
                 "required": [
                   "visitType",
-                  "format",
                   "time"
                 ],
                 "properties": {
@@ -225,16 +218,12 @@
                       "Sick visit",
                       "Annual physical / checkup",
                       "Follow-up visit",
-                      "Mental health",
-                      "Vaccine only"
+                      "Mental health"
                     ]
                   },
                   "format": {
                     "type": "string",
-                    "enum": [
-                      "In person",
-                      "Video visit"
-                    ]
+                    "description": "Optional. EMedic books video visits only (\"Video visit\"). Asking for an in-person visit returns in_person_unavailable, with a message pointing to the providers lookup."
                   },
                   "time": {
                     "type": "string",
@@ -246,7 +235,7 @@
                   "email": {
                     "type": "string",
                     "format": "email",
-                    "description": "Optional. Sends a confirmation email to this address (from the clinic's own address). Empty is ignored."
+                    "description": "Optional. Sends a confirmation email to this address. Empty is ignored."
                   },
                   "name": {
                     "type": "string",
@@ -263,10 +252,6 @@
                   "nurse": {
                     "type": "string",
                     "description": "Optional nurse name, e.g. \"Maria\"."
-                  },
-                  "location": {
-                    "type": "string",
-                    "description": "In-person only: \"main\", \"northgate\" or \"center\" (or the clinic name)."
                   },
                   "patientName": {
                     "type": "string"
@@ -690,33 +675,14 @@
       "get": {
         "operationId": "listNurses",
         "summary": "List the nurses patients can book with",
-        "description": "Each nurse has a clinic, languages, specialties, whether they do video visits, and their next open time. `message` is a ready-to-say summary.",
+        "description": "Each nurse has languages, specialties, visit types and their next open time. All EMedic visits are by video. `message` is a ready-to-say summary.",
         "parameters": [
-          {
-            "name": "location",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "main, northgate or center"
-          },
           {
             "name": "language",
             "in": "query",
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "video",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "1"
-              ]
-            },
-            "description": "Only nurses who do video visits"
           },
           {
             "name": "visitType",

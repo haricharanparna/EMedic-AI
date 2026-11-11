@@ -2,7 +2,7 @@
 
 ## Emergency room vs. urgent care vs. video visit
 - **Call 911 or go to the ER** for life-threatening problems: chest pain, trouble breathing, stroke signs, severe bleeding, major injuries, fainting, or sudden confusion.
-- **Urgent care** is for problems that need care today but aren't life-threatening: sprains, minor cuts that need stitches, ear pain, high fever, vomiting. EMedic Urgent Care is open **8 AM–10 PM daily**.
+- **Urgent care** is for problems that need care today but aren't life-threatening: sprains, minor cuts that need stitches, ear pain, high fever, vomiting. Most urgent care centers are open late and every day, with no appointment needed. EMedic AI can help you find providers near you.
 - **Video visits** work well for colds, flu symptoms, pink eye, rashes, urinary infections, refills and mental health. Available **7 AM–11 PM daily**.
 - **Your primary care provider** is best for checkups, ongoing conditions and anything that can wait a day or two.
 <!-- keywords: er emergency room urgent care where should i go which telehealth video virtual primary care doctor -->

@@ -228,8 +228,7 @@ function nurseCardsHtml(list) {
   return `<div class="nurse-cards">${list.map((n) => `
     <div class="ncard">
       <div class="ncard-top"><span class="n-av">${e(n.initials)}</span><div><b>${e(n.name)}</b><small>${e(n.title)}</small></div></div>
-      <div class="n-meta">${e(n.location)}${n.video ? ' · Video visits' : ''}</div>
-      <div class="n-meta">Speaks ${e(n.languages.join(', '))}${n.speaksYourLanguage ? ' <span class="n-badge">Your language</span>' : ''}</div>
+      <div class="n-meta">Video visits · Speaks ${e(n.languages.join(', '))}${n.speaksYourLanguage ? ' <span class="n-badge">Your language</span>' : ''}</div>
       <div class="n-tags">${n.specialties.map((t) => `<span>${e(t)}</span>`).join('')}</div>
       ${n.next ? `<div class="n-next">Next opening: <b>${e(n.next)}</b></div>` : ''}
       <button type="button" class="n-pick" data-pick="${e(n.name)}">Choose ${e(n.name.split(' ')[0])}</button>
@@ -307,9 +306,7 @@ function wireForm(form) {
       if (!el.name || el.closest('[hidden]')) continue;
       values[el.name] = el.type === 'checkbox' ? el.checked : el.value.trim();
     }
-    const loc = form.elements.location;
-    const where = loc && loc.selectedIndex >= 0 ? loc.options[loc.selectedIndex].text.split(' · ')[0] : '';
-    send(`📋 Visit details sent: ${[values.fullName, values.insurance, where].filter(Boolean).join(' · ')}`, { form: values });
+    send(`📋 Visit details sent: ${[values.fullName, values.insurance].filter(Boolean).join(' · ')}`, { form: values });
   });
 }
 
@@ -645,14 +642,11 @@ boot();
 let dirLoaded = false;
 async function loadDirectory() {
   const q = new URLSearchParams();
-  if ($('dirLocation').value) q.set('location', $('dirLocation').value);
   if ($('dirLanguage').value) q.set('language', $('dirLanguage').value);
-  if ($('dirVideo').checked) q.set('video', '1');
   let data;
   try { data = await (await fetch(`/api/nurses?${q}`)).json(); } catch { $('dirGrid').innerHTML = '<div class="dir-empty">Could not load the care team. Try again in a moment.</div>'; return; }
   if (!dirLoaded) {
     dirLoaded = true;
-    $('dirLocation').insertAdjacentHTML('beforeend', data.locations.map((l) => `<option value="${CP.esc(l.id)}">${CP.esc(l.name)}</option>`).join(''));
     $('dirLanguage').insertAdjacentHTML('beforeend', data.languages.map((l) => `<option>${CP.esc(l)}</option>`).join(''));
   }
   const e = CP.esc;
@@ -660,8 +654,7 @@ async function loadDirectory() {
     <div class="ncard">
       <div class="ncard-top"><span class="n-av">${e(n.initials)}</span><div><b>${e(n.name)}</b><small>${e(n.title)}</small></div></div>
       <div class="n-bio">${e(n.bio)}</div>
-      <div class="n-meta">${e(n.location)} · ${e(n.address)}${n.video ? ' · Video visits' : ''}</div>
-      <div class="n-meta">Speaks ${e(n.languages.join(', '))}</div>
+      <div class="n-meta">Video visits · Speaks ${e(n.languages.join(', '))}</div>
       <div class="n-tags">${n.specialties.map((t) => `<span>${e(t)}</span>`).join('')}</div>
       <div class="n-next">${n.next ? `Next opening: <b>${e(n.next)}</b>` : 'No open times right now'}</div>
       <button type="button" class="n-pick" data-book="${e(n.name)}"${n.next ? '' : ' disabled'}>Book with ${e(n.name.split(' ')[0])}</button>
@@ -685,7 +678,7 @@ $('nursesBtn').onclick = openDirectory;
 $('nursesClose').onclick = closeDirectory;
 $('nursesModal').addEventListener('click', (e) => { if (e.target.id === 'nursesModal') closeDirectory(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('nursesModal').hidden) closeDirectory(); });
-['dirLocation', 'dirLanguage', 'dirVideo'].forEach((id) => $(id).addEventListener('change', loadDirectory));
+$('dirLanguage').addEventListener('change', loadDirectory);
 
 // ---------------- Find a real provider (NPI Registry) ----------------
 async function searchProviders(ev) {

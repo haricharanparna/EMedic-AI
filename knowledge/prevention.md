@@ -7,7 +7,7 @@
 - **Shingles (Shingrix):** 2 doses for adults **50 and older**.
 - **Pneumococcal (pneumonia):** adults **50 and older**, and younger adults with certain conditions.
 - **RSV:** adults **75 and older**, and some younger adults at higher risk.
-EMedic offers walk-in vaccines at every primary care clinic.
+Most pharmacies and primary care offices give vaccines, often with no appointment. EMedic AI can help you find a provider near you.
 <!-- keywords: vaccine vaccines shots immunization flu shot covid booster tetanus shingles pneumonia rsv -->
 
 ## Recommended screenings by age

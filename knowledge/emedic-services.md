@@ -1,14 +1,14 @@
 # EMedic Services
 
-## Hours and locations
-- **Primary care clinics:** Monday–Friday 7:30 AM–7 PM, Saturday 8 AM–2 PM
-- **EMedic Urgent Care** (Main St and Northgate): **8 AM–10 PM every day**, no appointment needed
-- **EMedic Medical Center Emergency Room:** open **24/7**
+## Hours and how EMedic works
+EMedic is a **virtual care** service: every visit is **by video**, so you can see an EMedic nurse from anywhere in the U.S.
+- **Video visits:** **7 AM–11 PM every day**
 - **24/7 Nurse Line:** (555) 010-6877
-<!-- keywords: hours open location address where when closed weekend nurse line phone number contact -->
+- **Need to be seen in person?** Ask EMedic AI to **find a provider near you**. It searches real licensed clinicians by ZIP code or city in the public U.S. NPI Registry. For urgent problems, go to a local urgent care center, and for emergencies call **911**.
+<!-- keywords: hours open location address where when closed weekend nurse line phone number contact in person clinic office near me -->
 
 ## Booking, changing or canceling appointments
-Book through the MyEMedic portal or app, here in chat, or by calling **(555) 010-2273**. Same-day sick visits open up every morning at 7:30 AM. Please cancel or reschedule at least **24 hours ahead**. After a second missed appointment without notice, there's a **$40 no-show fee**.
+Book through the MyEMedic portal or app, here in chat, or by calling **(555) 010-2273**. All visits are by video. Same-day sick visits open up every morning at 7 AM. Please cancel or reschedule at least **24 hours ahead**. After a second missed appointment without notice, there's a **$40 no-show fee**.
 <!-- keywords: appointment book schedule cancel reschedule change visit doctor no show -->
 <!-- workflow: appointment -->
 
@@ -26,7 +26,7 @@ Most lab results appear in MyEMedic within **1–3 days**. Imaging results take 
 <!-- keywords: test results lab results blood work imaging xray how long when -->
 
 ## Insurance accepted
-EMedic accepts most major plans, including Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Medicare and state Medicaid plans. Plans and networks change, so confirm with your insurance company that EMedic is **in-network** for you before your visit. Bring your insurance card and a photo ID to every visit.
+EMedic accepts most major plans, including Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Medicare and state Medicaid plans. Plans and networks change, so confirm with your insurance company that EMedic is **in-network** for you before your visit. Have your insurance card and a photo ID ready for every visit.
 <!-- keywords: insurance accepted in network coverage medicare medicaid aetna cigna blue cross plan -->
 
 ## Bills and payment plans
@@ -34,7 +34,7 @@ You can view and pay bills in MyEMedic. For balances over $100, EMedic offers **
 <!-- keywords: bill billing pay payment plan cost charge statement owe -->
 
 ## Financial assistance
-If you're uninsured or have trouble paying, you may qualify for **free or discounted care**. Households earning up to **300% of the federal poverty level** can apply. Apply in MyEMedic, or meet with a financial counselor at any EMedic location. You can apply before or after you get care.
+If you're uninsured or have trouble paying, you may qualify for **free or discounted care**. Households earning up to **300% of the federal poverty level** can apply. Apply in MyEMedic, or book a call with a financial counselor. You can apply before or after you get care.
 <!-- keywords: financial assistance charity care afford uninsured no insurance discount help paying -->
 
 ## Medical records

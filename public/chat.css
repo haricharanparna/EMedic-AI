@@ -518,8 +518,6 @@ html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !imp
 .nurses-card h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.02em; }
 .dir-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0 14px; }
 .dir-filters select { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
-.dir-video { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); cursor: pointer; }
-.dir-video input { accent-color: var(--brand); }
 .dir-grid { margin-top: 0; }
 .dir-empty { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 24px; }
 

@@ -9,7 +9,7 @@ Depression is more than feeling sad. Signs that last **2 weeks or longer** inclu
 <!-- keywords: depression depressed sad hopeless low mood mental health -->
 
 ## Getting therapy at EMedic
-EMedic Behavioral Health offers therapy in person and by video, usually with **same-week appointments**. **No referral is needed.** Book through the MyEMedic portal or by calling (555) 010-3300. Most insurance plans cover therapy. Self-pay sessions are $95, with a sliding scale available based on income.
+EMedic Behavioral Health offers therapy by video, usually with **same-week appointments**. **No referral is needed.** Book through the MyEMedic portal or by calling (555) 010-3300. Most insurance plans cover therapy. Self-pay sessions are $95, with a sliding scale available based on income.
 <!-- keywords: therapy therapist counseling counselor psychologist psychiatrist mental health appointment -->
 <!-- workflow: appointment -->
 

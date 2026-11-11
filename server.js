@@ -82,13 +82,12 @@ function serveStatic(res, urlPath) {
 // Run an action and reply with its result, or with its friendly error.
 // soft = true answers errors with HTTP 200 + ok:false, so a no-code workflow (like eGain's API node)
 // can branch on `ok` and still show the friendly `message`, instead of landing in a generic error path.
-// Nurses with their next open time, filtered by ?location=&language=&video=1&visitType=.
+// Nurses with their next open time, filtered by ?language=&visitType=.
 function nurseDirectory(q) {
-  const loc = q.get('location') ? nurses.location(q.get('location')) : null;
   const lang = q.get('language');
   return nurses.NURSES
-    .filter((n) => (!loc || n.location === loc.id) && (!lang || n.languages.some((l) => l.toLowerCase() === lang.toLowerCase()))
-      && (!q.get('video') || n.video) && (!q.get('visitType') || n.visits.includes(q.get('visitType'))))
+    .filter((n) => (!lang || n.languages.some((l) => l.toLowerCase() === lang.toLowerCase()))
+      && (!q.get('visitType') || n.visits.includes(q.get('visitType'))))
     .map((n) => nurses.card(n, { next: actions.listSlots({ nurseIds: [n.id], count: 1 })[0] || null }));
 }
 
@@ -200,7 +199,7 @@ async function route(req, res) {
     if (req.method === 'GET' && p === '/api/actions/nurses') {
       return act(() => {
         const list = nurseDirectory(url(req).searchParams);
-        return { nurses: list, message: list.length ? `Our nurses: ${list.map((n) => `${n.name} (${n.title.split(',')[0]}, ${n.location}${n.video ? ', video' : ''})`).join('; ')}.` : 'No nurses match that.' };
+        return { nurses: list, message: list.length ? `Our nurses: ${list.map((n) => `${n.name} (${n.title.split(',')[0]}, speaks ${n.languages.join('/')})`).join('; ')}.` : 'No nurses match that.' };
       });
     }
     if (req.method === 'POST' && p === '/api/actions/appointments') {
@@ -326,7 +325,7 @@ async function route(req, res) {
     }
   }
   if (req.method === 'GET' && p === '/api/nurses') {
-    return send(res, 200, { locations: nurses.LOCATIONS, languages: nurses.LANGUAGES, nurses: nurseDirectory(url(req).searchParams) });
+    return send(res, 200, { languages: nurses.LANGUAGES, nurses: nurseDirectory(url(req).searchParams) });
   }
   if (req.method === 'GET' && p === '/api/health') return send(res, 200, { ok: true, llm: bot.llmEnabled() });
   if (req.method === 'GET' && !p.startsWith('/api/')) return serveStatic(res, p);
