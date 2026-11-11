@@ -302,6 +302,13 @@ server.listen(0, async () => {
       const api = await (await fetch(`${base}/api/actions/providers?city=Herndon&type=pediatrics`, { headers: { 'X-API-Key': 'test-actions-key' } })).json();
       assert.match(api.message, /Jane Q\. Doe, MD \(Pediatrics\) at 100 Main St, Herndon, VA 20170/);
       assert.ok(!/555-01/.test(JSON.stringify(api)));
+      // eGain tool: one "where" answer and a plain-words type.
+      await fetch(`${base}/api/actions/providers?soft=1&type=kids%20doctor&where=Austin,%20TX`, { headers: { 'X-API-Key': 'test-actions-key' } });
+      assert.match(asked.at(-1), /taxonomy_description=Pediatrics/);
+      assert.match(asked.at(-1), /state=TX/);
+      await fetch(`${base}/api/actions/providers?soft=1&type=dentist&where=94110`, { headers: { 'X-API-Key': 'test-actions-key' } });
+      assert.match(asked.at(-1), /state=CA/);
+      assert.match(asked.at(-1), /postal_code=941\*/);
     } finally {
       global.fetch = realFetch;
     }

@@ -228,8 +228,6 @@ document.getElementById('addDay').onclick = () => {
   addSlots(standardTimes.map((t) => `${slotDate.value}T${t}`));
 };
 
-const REQ_ICON = { refill: '💊', callback: '📞', appointment: '📅' };
-
 function requestLines(r) {
   if (r.type === 'refill') return [`${r.medication} → ${r.pharmacy}`, `Refills left: ${r.refillsRemaining} · DOB ${r.dateOfBirth}`];
   if (r.type === 'callback') return [`Call ${r.phone} · ${r.bestTime}`, `Reason: ${r.reason}`];
@@ -259,7 +257,7 @@ async function loadRequests() {
         ? `<div class="acts"><button class="approve" data-act="callbacks/${r.ref}/complete">Mark called</button></div>`
         : '';
     return `<div class="req">
-      <div class="top"><span>${REQ_ICON[r.type] || ''}</span><span class="ref">${CP.esc(r.ref)}</span>
+      <div class="top"><span class="ref">${CP.esc(r.ref)}</span>
         <span class="pill ${waiting ? 'waiting' : ''}">${CP.esc(r.status)}</span><span class="when">${CP.ago(Date.parse(r.updatedAt || r.createdAt))}</span></div>
       ${requestLines(r).map((l) => `<div class="line">${CP.esc(l)}</div>`).join('')}
       ${acts}
@@ -294,7 +292,7 @@ async function loadConvo() {
         : m.from === 'bot' ? '<div class="who" style="color:var(--muted)">EMedic AI (bot)</div>'
         : s.name ? `<div class="who">${CP.esc(s.name)}</div>` : '';
       const body = m.from === 'user' ? `<p>${CP.esc(m.text)}</p>` : CP.md(m.text);
-      const src = m.sources?.length ? `<div class="sources">${m.sources.map((x) => `<span>📄 ${CP.esc(x.heading)}</span>`).join('')}</div>` : '';
+      const src = m.sources?.length ? `<div class="sources">${m.sources.map((x) => `<span>${CP.esc(x.heading)}</span>`).join('')}</div>` : '';
       return `<div class="msg ${m.from}">${who}${body}${src}</div>`;
     }).join('');
     logEl.scrollTop = logEl.scrollHeight;

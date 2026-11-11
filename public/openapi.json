@@ -761,6 +761,14 @@
         "description": "Public NPI Registry data: name, credential, specialty, practice address, map link and NPI record link. No phone numbers. These are not EMedic staff. `message` is a ready-to-say summary.",
         "parameters": [
           {
+            "name": "where",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A ZIP code or a city and state in one field, e.g. 10001 or Austin, TX"
+          },
+          {
             "name": "zip",
             "in": "query",
             "schema": {
@@ -799,7 +807,8 @@
                 "obgyn",
                 "dentist"
               ]
-            }
+            },
+            "description": "One of these, or plain words like \"dentist\" or \"kids doctor\""
           },
           {
             "name": "limit",

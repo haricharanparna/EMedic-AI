@@ -327,7 +327,7 @@ body.ready .main { transition-delay: 0.1s; }
 .intro-card b { color: #fff; }
 .can-do { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .can-do li { display: flex; gap: 12px; font-size: 14px; color: rgba(255,255,255,0.72); line-height: 1.45; }
-.can-do li span { font-size: 19px; flex: none; width: 26px; text-align: center; }
+.can-do li svg { flex: none; width: 22px; height: 22px; margin-top: 1px; fill: none; stroke: #5eead4; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .can-do b { display: block; color: #fff; font-size: 14.5px; }
 .how { margin: 0; padding-left: 22px; display: grid; gap: 10px; color: rgba(255,255,255,0.75); font-size: 14.5px; line-height: 1.5; }
 .how li::marker { color: #5eead4; font-weight: 700; }

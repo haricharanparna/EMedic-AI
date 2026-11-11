@@ -151,7 +151,7 @@ Optional: if node 2 or node 4 can save the choice to a variable (for example `as
 
 ## Step 7: Process Tools workflows (Requirements 05 + 06)
 
-Build these 5 tools. After publishing each one, **connect it to an intent**: go to **Test AI Agent** tab → find the intent → **pencil icon** → **Assign Workflow** → pick the tool. Requirement 05 is "connect the workflow to an appropriate intent."
+Build these 5 tools (plus the optional 7F). After publishing each one, **connect it to an intent**: go to **Test AI Agent** tab → find the intent → **pencil icon** → **Assign Workflow** → pick the tool. Requirement 05 is "connect the workflow to an appropriate intent."
 
 > Tip: if a tool has no matching intent, add a short section about it to the matching `knowledge/*.md` file, re-export, re-upload and re-train. The library already has sections for refills, appointments and where to get care, so intents should exist.
 
@@ -229,6 +229,17 @@ Free-text answers are fine. The API understands answers like "6 weeks", "pretty 
 | 3 | **Statement** | `{{rxStatus}}` |
 
 **Demo gold:** submit a refill with **"No"** refills left. In the Nurse Console's **Requests** tab, click **Approve**. Then ask the eGain agent for the status. It now says *Approved, sent to pharmacy*. That's a real end-to-end action.
+
+### 7F. `Find a Provider`: real U.S. clinicians → intent: *Finding a doctor / provider* (optional)
+
+| # | Node | Settings |
+|---|---|---|
+| 1 | **Question (Text)** | `What kind of provider? (for example: family doctor, pediatrician, dentist, therapist, psychiatrist, OB-GYN)` → Variable `providerType` |
+| 2 | **Question (Text)** | `What's your ZIP code, or city and state? (for example: 10001 or Austin, TX)` → Variable `where` |
+| 3 | **API** | **GET** `APP/api/actions/providers?soft=1&type={{providerType}}&where={{where}}` → map `message` → `provMessage` |
+| 4 | **Statement** | `{{provMessage}} These are real licensed clinicians from the public U.S. NPI Registry, not EMedic staff, so contact their office to check they're taking new patients.` |
+
+Works anywhere in the U.S. `type` understands plain words like "dentist" or "kids doctor". No phone numbers are returned, only name, specialty and practice address.
 
 ---
 

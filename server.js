@@ -93,8 +93,12 @@ function nurseDirectory(q) {
 }
 
 function providerSearch(q) {
-  const type = providers.TYPES[q.get('type')] ? q.get('type') : 'family';
-  return providers.search({ zip: q.get('zip'), city: q.get('city'), state: q.get('state'), type, limit: Math.min(Number(q.get('limit')) || 8, 20) });
+  // ?where= takes either one, so a chat tool can ask a single question ("ZIP code, or city and state?").
+  const where = (q.get('where') || '').trim();
+  const zip = q.get('zip') || (/^\d{5}(-\d{4})?$/.test(where) ? where : '');
+  const city = q.get('city') || (zip ? '' : where);
+  const type = providers.TYPES[q.get('type')] ? q.get('type') : providers.typeFromText(q.get('type')) || 'family';
+  return providers.search({ zip, city, state: q.get('state'), type, limit: Math.min(Number(q.get('limit')) || 8, 20) });
 }
 
 async function runAction(res, fn, headers, soft = false) {
@@ -185,7 +189,7 @@ async function route(req, res) {
       });
     }
     if (req.method === 'GET' && p === '/api/actions/providers') {
-      // Real U.S. clinicians from the NPI Registry: ?zip=10001 or ?city=Austin&state=TX, &type=family|pediatrics|...
+      // Real U.S. clinicians from the NPI Registry: ?where=10001 or ?where=Austin, TX (or zip/city/state), &type=family|pediatrics|...
       return act(async () => {
         const r = await providerSearch(url(req).searchParams);
         if (r.error) throw new actions.ActionError(400, 'bad_location', r.error);
