@@ -537,3 +537,23 @@ html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !imp
 #provWhere { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; outline: none; }
 #provWhere:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 #provResults { min-height: 120px; }
+
+/* Sidebar fit: Recent always keeps room for a few chats; on short screens the whole sidebar scrolls
+   instead of squeezing Recent down to nothing. */
+.sidebar { overflow-y: auto; overscroll-behavior: contain; }
+.side-section.grow { flex: 1 0 auto; min-height: 140px; }
+.recent { flex: 1 0 auto; overflow: visible; }
+.quick button { padding: 6px 10px; }
+.side-section { margin-top: 10px; }
+.side-foot { flex: none; }
+.sidebar > * { flex-shrink: 0; }
+/* Emergency numbers, Settings and About stay pinned at the bottom; the lists above scroll behind them. */
+.side-foot { position: sticky; bottom: -12px; margin-bottom: -12px; padding-bottom: 12px; background: var(--sidebar); z-index: 1; }
+/* Quick actions as a compact two-column grid, so Recent chats have room. */
+.quick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 4px; }
+.quick button { gap: 8px; padding: 6px 8px; font-size: 13px; }
+.quick .qi { width: 24px; height: 24px; border-radius: 7px; }
+.quick .qi svg { width: 14px; height: 14px; }
+.quick button { white-space: normal; line-height: 1.25; overflow: visible; text-overflow: clip; min-height: 36px; padding: 5px 6px; }
+:root { --side-w: 300px; }
+.quick button { white-space: nowrap; min-height: 34px; padding: 5px 7px; gap: 7px; font-size: 13px; }
