@@ -229,6 +229,66 @@ server.listen(0, async () => {
     }
   });
 
+  await check('find a real provider (NPI Registry): no phone numbers, Virginia only', async () => {
+    // A stand-in for the registry, so the test doesn't depend on the internet. It includes phone and fax
+    // numbers on purpose: none of them may come back out.
+    const fakeNpi = {
+      result_count: 3,
+      results: [
+        { number: 1111111111, basic: { first_name: 'JANE', middle_name: 'Q', last_name: 'DOE', credential: 'M.D.' },
+          addresses: [
+            { address_purpose: 'LOCATION', address_1: '100 MAIN ST', city: 'HERNDON', state: 'VA', postal_code: '201705555', telephone_number: '703-555-0100', fax_number: '703-555-0101' },
+            { address_purpose: 'MAILING', address_1: 'PO BOX 1', city: 'HERNDON', state: 'VA', postal_code: '20170', telephone_number: '703-555-0199' }],
+          taxonomies: [{ desc: 'Pediatrics', primary: true }] },
+        { number: 2222222222, basic: { first_name: 'FAR', last_name: 'AWAY', credential: 'MD' },
+          addresses: [{ address_purpose: 'LOCATION', address_1: '1 ELM', city: 'RICHMOND', state: 'VA', postal_code: '23219', telephone_number: '804-555-0100' }],
+          taxonomies: [{ desc: 'Pediatrics', primary: true }] },
+        { number: 3333333333, basic: { first_name: 'NOT', last_name: 'PEDS', credential: 'MD' },
+          addresses: [{ address_purpose: 'LOCATION', address_1: '2 OAK', city: 'HERNDON', state: 'VA', postal_code: '20171', telephone_number: '703-555-0102' }],
+          taxonomies: [{ desc: 'Dermatology', primary: true }] },
+      ],
+    };
+    const realFetch = global.fetch;
+    const asked = [];
+    global.fetch = async (u, opts) => {
+      if (String(u).includes('npiregistry.cms.hhs.gov')) { asked.push(String(u)); return new Response(JSON.stringify(fakeNpi), { status: 200 }); }
+      return realFetch(u, opts);
+    };
+    try {
+      const sid = await fresh('test-providers');
+      const [found] = await chat(sid, 'Can you find a pediatrician near 20171?');
+      assert.match(found.text, /U\.S\. NPI Registry/);
+      assert.equal(found.providers.length, 1, 'only nearby practices with that specialty');
+      const p = found.providers[0];
+      assert.equal(p.name, 'Jane Q. Doe');
+      assert.equal(p.credential, 'MD');
+      assert.equal(p.address, '100 Main St, Herndon, VA 20170');
+      assert.match(p.mapUrl, /^https:\/\/www\.google\.com\/maps/);
+      assert.match(p.registryUrl, /1111111111$/);
+      assert.ok(!/555-01|telephone|fax|phone/i.test(JSON.stringify(found)), 'no phone or fax numbers anywhere');
+      assert.match(asked[0], /state=VA/);
+      assert.match(asked[0], /postal_code=201\*/);
+      // Without a place, it asks; a bare city name answers.
+      const [ask] = await chat(sid, 'I need a pediatrician');
+      assert.match(ask.text, /ZIP code\*\* or \*\*city/);
+      const [byCity] = await chat(sid, 'Herndon');
+      assert.equal(byCity.providers.length, 1);
+      assert.equal((await chat(sid, 'pediatricians near Herndon, VA'))[0].providers.length, 1);
+      assert.match(asked.at(-1), /city=HERNDON/);
+      // Outside Virginia: a clear message, no lookup.
+      assert.match((await chat(sid, 'find a pediatrician near 10001'))[0].text, /isn't in Virginia/);
+      // Page and Actions API routes.
+      const page = await (await fetch(`${base}/api/providers?zip=20171&type=pediatrics`)).json();
+      assert.equal(page.results.length, 1);
+      assert.ok(!/555-01|telephone|fax/i.test(JSON.stringify(page)));
+      const api = await (await fetch(`${base}/api/actions/providers?city=Herndon&type=pediatrics`, { headers: { 'X-API-Key': 'test-actions-key' } })).json();
+      assert.match(api.message, /Jane Q\. Doe, MD \(Pediatrics\) at 100 Main St, Herndon, VA 20170/);
+      assert.ok(!/555-01/.test(JSON.stringify(api)));
+    } finally {
+      global.fetch = realFetch;
+    }
+  });
+
   await check('nurse console requires the passcode', async () => {
     assert.equal((await fetch(`${base}/api/agent/sessions`)).status, 401);
     const wrong = await fetch(`${base}/api/agent/sessions`, { headers: { 'X-Staff-Passcode': 'guess' } });

@@ -522,3 +522,18 @@ html.rm *, html.rm *::before, html.rm *::after { animation-duration: 0.01ms !imp
 .dir-video input { accent-color: var(--brand); }
 .dir-grid { margin-top: 0; }
 .dir-empty { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 24px; }
+
+/* Real provider listings (NPI Registry) */
+.provider-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 14px; }
+.pcard { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 14px; }
+.p-av { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13.5px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.pcard .ncard-top b { font-size: 14.5px; }
+.p-spec { font-size: 13px; font-weight: 600; color: var(--brand); }
+.p-addr { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.p-links { display: flex; gap: 6px; margin-top: auto; padding-top: 4px; }
+.p-links a { flex: 1; text-align: center; font-size: 13px; font-weight: 600; text-decoration: none; padding: 7px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--ink); background: var(--surface-2); }
+.p-links a:hover { border-color: var(--brand); color: var(--brand); }
+.p-source { margin-top: 8px; font-size: 12px; color: var(--faint); }
+#provWhere { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; outline: none; }
+#provWhere:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+#provResults { min-height: 120px; }

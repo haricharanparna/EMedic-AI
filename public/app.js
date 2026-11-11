@@ -182,6 +182,7 @@ function renderMessage(m, { animate = true } = {}) {
     }
     if (m.summary) body += CP.summaryHtml(m.summary);
     if (m.nurses?.length) body += nurseCardsHtml(m.nurses);
+    if (m.providers?.length) body += providerCardsHtml(m.providers, m.providerTotal);
     if (m.form) body += formHtml(m.form, m.id);
     if (m.from === 'bot') body += `<div class="msg-actions"><button type="button" class="copy" title="Copy">${COPY_ICON}</button></div>`;
     row.innerHTML = `${av}<div class="content">${body}</div>`;
@@ -233,6 +234,20 @@ function nurseCardsHtml(list) {
       ${n.next ? `<div class="n-next">Next opening: <b>${e(n.next)}</b></div>` : ''}
       <button type="button" class="n-pick" data-pick="${e(n.name)}">Choose ${e(n.name.split(' ')[0])}</button>
     </div>`).join('')}</div>`;
+}
+
+// Real clinicians from the NPI Registry: who and where only (no phone numbers).
+function providerCardsHtml(list, total) {
+  const e = CP.esc;
+  const initials = (n) => n.split(' ').filter((w) => !/\.$/.test(w)).map((w) => w[0]).join('').slice(0, 2);
+  return `<div class="provider-cards">${list.map((p) => `
+    <div class="pcard">
+      <div class="ncard-top"><span class="p-av">${e(initials(p.name))}</span><div><b>${e(p.name)}</b><small>${e(p.credential || 'Licensed clinician')}</small></div></div>
+      <div class="p-spec">${e(p.specialty)}</div>
+      <div class="p-addr">${e(p.address)}</div>
+      <div class="p-links"><a href="${e(p.mapUrl)}" target="_blank" rel="noopener">Map</a><a href="${e(p.registryUrl)}" target="_blank" rel="noopener">NPI record</a></div>
+    </div>`).join('')}</div>
+    <div class="p-source">Source: U.S. NPI Registry (CMS), public data${total > list.length ? ` · showing ${list.length} of ${total}` : ''}. A listing isn't a recommendation.</div>`;
 }
 
 function formHtml(f, mid) {
@@ -671,3 +686,40 @@ $('nursesClose').onclick = closeDirectory;
 $('nursesModal').addEventListener('click', (e) => { if (e.target.id === 'nursesModal') closeDirectory(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('nursesModal').hidden) closeDirectory(); });
 ['dirLocation', 'dirLanguage', 'dirVideo'].forEach((id) => $(id).addEventListener('change', loadDirectory));
+
+// ---------------- Find a real provider (NPI Registry) ----------------
+async function searchProviders(ev) {
+  ev?.preventDefault();
+  const where = $('provWhere').value.trim();
+  if (!where) { $('provWhere').focus(); return; }
+  const q = new URLSearchParams({ type: $('provType').value, limit: '12' });
+  q.set(/^\d{5}$/.test(where) ? 'zip' : 'city', where.replace(/,?\s*(va|virginia)$/i, ''));
+  $('provResults').innerHTML = '<div class="dir-empty">Searching the NPI Registry…</div>';
+  let data;
+  try {
+    const res = await fetch(`/api/providers?${q}`);
+    data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+  } catch (err) {
+    $('provResults').innerHTML = `<div class="dir-empty">${CP.esc(err.message || 'Something went wrong. Try again.')}</div>`;
+    return;
+  }
+  $('provResults').innerHTML = data.results.length
+    ? providerCardsHtml(data.results, data.total)
+    : `<div class="dir-empty">No ${CP.esc(data.type.toLowerCase())} listings found for ${CP.esc(data.where)}. Try a nearby ZIP or a bigger city.</div>`;
+}
+function openProviders() {
+  lastFocus = document.activeElement;
+  $('providersModal').hidden = false;
+  closeSide();
+  $('provWhere').focus();
+}
+function closeProviders() {
+  $('providersModal').hidden = true;
+  lastFocus?.focus?.();
+}
+$('providersBtn').onclick = openProviders;
+$('providersClose').onclick = closeProviders;
+$('providersModal').addEventListener('click', (e) => { if (e.target.id === 'providersModal') closeProviders(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('providersModal').hidden) closeProviders(); });
+$('provForm').addEventListener('submit', searchProviders);

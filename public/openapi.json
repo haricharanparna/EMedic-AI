@@ -753,6 +753,82 @@
           }
         }
       }
+    },
+    "/api/actions/providers": {
+      "get": {
+        "operationId": "findProviders",
+        "summary": "Find real licensed clinicians in Virginia (U.S. NPI Registry)",
+        "description": "Public NPI Registry data: name, credential, specialty, practice address, map link and NPI record link. No phone numbers. These are not EMedic staff. `message` is a ready-to-say summary.",
+        "parameters": [
+          {
+            "name": "zip",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Virginia ZIP code (or use city)"
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Virginia city, e.g. Richmond"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "family",
+                "internal",
+                "pediatrics",
+                "np",
+                "psychiatry",
+                "therapy",
+                "obgyn",
+                "dentist"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Providers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

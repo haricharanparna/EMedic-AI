@@ -12,6 +12,7 @@ const actions = require('./lib/actions');
 const email = require('./lib/email');
 const schedule = require('./lib/schedule');
 const nurses = require('./lib/nurses');
+const providers = require('./lib/providers');
 const library = require('./lib/library');
 const { triageResult } = require('./lib/workflows');
 
@@ -89,6 +90,11 @@ function nurseDirectory(q) {
     .filter((n) => (!loc || n.location === loc.id) && (!lang || n.languages.some((l) => l.toLowerCase() === lang.toLowerCase()))
       && (!q.get('video') || n.video) && (!q.get('visitType') || n.visits.includes(q.get('visitType'))))
     .map((n) => nurses.card(n, { next: actions.listSlots({ nurseIds: [n.id], count: 1 })[0] || null }));
+}
+
+function providerSearch(q) {
+  const type = providers.TYPES[q.get('type')] ? q.get('type') : 'family';
+  return providers.search({ zip: q.get('zip'), city: q.get('city'), type, limit: Math.min(Number(q.get('limit')) || 8, 20) });
 }
 
 async function runAction(res, fn, headers, soft = false) {
@@ -176,6 +182,15 @@ async function route(req, res) {
         const slots = actions.listSlots({ nurseIds: nurse ? [nurse.id] : undefined });
         const who = nurse ? ` with ${nurse.name}` : '';
         return { slots, message: slots.length ? `Next available times${who}: ${slots.join('; ')}.` : `There are no open times${who} right now.` };
+      });
+    }
+    if (req.method === 'GET' && p === '/api/actions/providers') {
+      // Real Virginia clinicians from the NPI Registry: ?zip=20171 or ?city=Herndon, &type=family|pediatrics|...
+      return act(async () => {
+        const r = await providerSearch(url(req).searchParams);
+        if (r.error) throw new actions.ActionError(400, 'bad_location', r.error);
+        const list = r.results.map((x) => `${x.name}${x.credential ? `, ${x.credential}` : ''} (${x.specialty}) at ${x.address}`);
+        return { providers: r.results, message: list.length ? `${r.type} listings near ${r.where} from the U.S. NPI Registry: ${list.join('; ')}.` : `No ${r.type.toLowerCase()} listings found near ${r.where}.` };
       });
     }
     if (req.method === 'GET' && p === '/api/actions/nurses') {
@@ -298,6 +313,14 @@ async function route(req, res) {
   }
 
   // Public nurse directory for the "Meet our nurses" page (no patient data).
+  if (req.method === 'GET' && p === '/api/providers') {
+    try {
+      const r = await providerSearch(url(req).searchParams);
+      return send(res, r.error ? 400 : 200, { ...r, types: Object.fromEntries(Object.entries(providers.TYPES).map(([k, v]) => [k, v.label])) });
+    } catch {
+      return send(res, 502, { error: "Couldn't reach the NPI Registry. Try again in a minute." });
+    }
+  }
   if (req.method === 'GET' && p === '/api/nurses') {
     return send(res, 200, { locations: nurses.LOCATIONS, languages: nurses.LANGUAGES, nurses: nurseDirectory(url(req).searchParams) });
   }
