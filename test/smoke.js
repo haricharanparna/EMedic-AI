@@ -337,6 +337,17 @@ server.listen(0, async () => {
     assert.match(found.text, /I found it/);
     const [newSlots] = await chat(sid, 'Reschedule');
     assert.ok(!newSlots.options.includes(bookedTime), 'booked slot should not be offered again');
+    // Rescheduling stays with the same nurse: every offered time is theirs.
+    const rec = (await get('/api/agent/requests')).find((x) => x.ref === apt);
+    const schedule = (await get('/api/agent/slots')).slots;
+    assert.ok(rec.nurseId, 'booking has a nurse');
+    assert.match(newSlots.text, new RegExp(`open times with \\*\\*${rec.nurseName.split(',')[0]}`));
+    // (A time with no nurse attached is open to anyone, so it can be offered too.)
+    for (const label of newSlots.options) assert.ok([rec.nurseId, undefined].includes(schedule.find((x) => x.label === label)?.nurseId), `${label} belongs to the same nurse`);
+    const other = rec.nurseId === 'wei-chen' ? 'jordan-lee' : 'wei-chen';
+    await post('/api/agent/slots', { start: '2031-04-01T11:45', nurseId: other });
+    const moveApi = await fetch(`${base}/api/actions/appointments/${apt}/reschedule`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': 'test-actions-key' }, body: JSON.stringify({ time: 'Tue, Apr 1, 11:45 AM' }) });
+    assert.equal(moveApi.status, 409, "the API can't move it to another nurse's time either");
     assert.match((await chat(sid, newSlots.options[0]))[0].text, /moved from/);
     await chat(sid, `cancel ${apt}`);
     await chat(sid, 'Cancel it');
