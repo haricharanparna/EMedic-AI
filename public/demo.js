@@ -21,8 +21,19 @@
   let skip = false;
   let started = false;
 
-  // Pause between steps so the narration can catch up. Space skips it, P holds it.
+  // Optional: window.DEMO_CUES = { name: 10.8, tylenol: 14.6, … } (seconds after S) starts each step on cue,
+  // to line the demo up with a voice-over recorded separately. Steps then move a little faster in between.
+  const CUES = window.DEMO_CUES || null;
+  let t0 = Number(sessionStorage.getItem('demo-t0')) || 0;
+  async function cue(name) {
+    if (!CUES || CUES[name] == null) return;
+    while (Date.now() - t0 < CUES[name] * 1000) await sleep(30);
+  }
+  const quick = (ms, fast) => (CUES ? fast : ms);
+
+  // Pause between steps so the narration can catch up. → skips it, ↓ holds it. With cues, the cues set the pace.
   async function hold(ms) {
+    if (CUES) return sleep(Math.min(ms, 250));
     const end = Date.now() + ms;
     while ((Date.now() < end || paused) && !skip) await sleep(50);
     skip = false;
@@ -41,12 +52,12 @@
 
   async function moveTo(el) {
     el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    await sleep(150);
+    await sleep(quick(150, 80));
     const r = el.getBoundingClientRect();
     cursor.style.display = 'block';
     cursor.style.left = `${r.left + Math.min(r.width / 2, 60)}px`;
     cursor.style.top = `${r.top + r.height / 2}px`;
-    await sleep(450);
+    await sleep(quick(450, 320));
   }
   async function click(el) {
     await moveTo(el);
@@ -61,9 +72,9 @@
   const botCount = () => document.querySelectorAll('#log .row.bot:not(#thinking)').length;
   async function reply(before) {
     await until(() => botCount() > before && !$('#thinking'));
-    await sleep(400); // a step can send more than one message
+    await sleep(quick(400, 200)); // a step can send more than one message
   }
-  async function type(el, text, perChar = 35) {
+  async function type(el, text, perChar = quick(35, 26)) {
     el.focus();
     for (let i = 1; i <= text.length; i++) {
       el.value = text.slice(0, i);
@@ -111,10 +122,12 @@
     // 1. Intro screen, then into the app.
     await until(() => $('#startBtn') && !$('#intro')?.hidden);
     await hold(2000);
+    await cue('start');
     await click($('#startBtn'));
     await hold(600);
 
     // 2. Your name, then a health question answered with its source.
+    await cue('name');
     await moveTo($('#nameInput'));
     await type($('#nameInput'), 'Jordan', 90);
     await click($('#nameSave'));
@@ -123,11 +136,13 @@
     await click($('#hero [data-say="Myself"]'));
     await reply(before);
     await hold(400);
+    await cue('tylenol');
     await say('How much Tylenol can I take?');
     scrollEnd();
     await hold(3500);
 
     // 3. Symptom check: a baby with a fever goes straight to the ER.
+    await cue('triage');
     await say('Check my symptoms');
     for (const pick of [/^No\b/, /Fever/, /Under 3/, /Mild/, /Less than|1.?2 days|Today/i]) {
       const has = [...document.querySelectorAll('#log .chips button')].some((b) => pick.test(b.textContent));
@@ -138,11 +153,13 @@
     await hold(3500);
 
     // 4. Book a video visit with a nurse by name.
+    await cue('maria');
     await say('I want to see Maria Gonzalez');
     await hold(300);
     await chip(/^Sick visit$/);
     await fillForm({ fullName: 'Jordan Smith', dob: '1992-05-14', phone: '(555) 201-3344', insurance: 'Aetna', memberId: 'AET55821', language: 'English', reason: 'Sore throat and fever for 2 days', consent: true });
     await hold(500);
+    await cue('book');
     await chip(/AM|PM/);
     await hold(800);
     await chip(/^Confirm booking$/);
@@ -150,11 +167,13 @@
     await hold(3500);
 
     // 5. Real doctors anywhere in the U.S. for in-person care.
+    await cue('providers');
     await say('Find a pediatrician near 10001');
     scrollEnd();
     await hold(3500);
 
     // 6. Emergencies are caught in any message.
+    await cue('emergency');
     await say('My dad has chest pain and can\'t breathe');
     scrollEnd();
     await hold(3500);
@@ -162,6 +181,7 @@
     // 7. Over to the Nurse Console (only if you're signed in to it in this tab).
     let signedIn = false;
     try { signedIn = Boolean(sessionStorage.getItem('emedic-staff-passcode')); } catch { /* private mode */ }
+    await cue('console');
     if (signedIn) location.href = '/agent?demo';
     else cursor.style.display = 'none';
   }
@@ -172,17 +192,20 @@
     await sleep(1200);
     if (!$('#login').hidden) return; // not signed in: leave the page as it is
     await hold(800);
+    await cue('requests');
     await click($('#tabRequests'));
     const findCard = () => [...document.querySelectorAll('#requests .req')].find((c) => /Jordan Smith/.test(c.textContent));
     await moveTo(await until(findCard));
     // The list redraws every couple of seconds, so keep putting the highlight back.
     const light = setInterval(() => { const c = findCard(); if (c) c.style.boxShadow = '0 0 0 3px #2dd4bf'; }, 150);
     await hold(3500);
+    await cue('schedule'); // with a voice-over, stay lit until it moves on
     clearInterval(light);
     const c = findCard();
     if (c) c.style.boxShadow = '';
     await click($('#tabSchedule'));
     await hold(2500);
+    await cue('end');
     cursor.style.display = 'none';
   }
   if (onConsole) {
@@ -196,6 +219,8 @@
     if (!started && e.key.toLowerCase() === 's' && !e.target.closest?.('input, textarea, select')) {
       e.preventDefault();
       started = true;
+      t0 = Date.now();
+      try { sessionStorage.setItem('demo-t0', String(t0)); } catch { /* private mode */ }
       run().catch((err) => console.error(err));
     } else if (started && e.key === 'ArrowRight') { e.preventDefault(); skip = true; } // skip this pause
     else if (started && e.key === 'ArrowDown') { e.preventDefault(); paused = !paused; } // pause / resume
